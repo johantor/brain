@@ -5,6 +5,13 @@ All notable changes to the `brain` plugin are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.10.0] - 2026-11-11
+
+### Added
+
+- Personal skills: three lessons on one tool become a `brain-` skill draft, live after 3 days
+  unless forgotten (`/brain:forget S<n>`), removed after 30 days unused; at most 5 (#18).
+
 ## [0.9.0] - 2026-11-11
 
 ### Added

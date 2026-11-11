@@ -28,6 +28,10 @@ CREATE TABLE IF NOT EXISTS lessons (
 CREATE TABLE IF NOT EXISTS scores (
   lesson INTEGER PRIMARY KEY, loaded_n INTEGER, held_n INTEGER, loaded_rate REAL, held_rate REAL,
   verdict TEXT, ts INTEGER);
+-- brain-<name> skills: pending (in the veto window), active (installed) or retired.
+CREATE TABLE IF NOT EXISTS skills (
+  id INTEGER PRIMARY KEY, name TEXT NOT NULL UNIQUE, tool TEXT NOT NULL, description TEXT NOT NULL,
+  body TEXT NOT NULL, status TEXT NOT NULL, created INTEGER NOT NULL, activated INTEGER);
 -- Every change to a lesson, with what it replaced, so /brain:undo can reverse the latest.
 CREATE TABLE IF NOT EXISTS changes (
   id INTEGER PRIMARY KEY, ts INTEGER NOT NULL, lesson INTEGER NOT NULL, action TEXT NOT NULL,

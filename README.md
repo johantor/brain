@@ -102,6 +102,11 @@ Ask "what should go in my global CLAUDE.md?" and brain lists the auto-memory ent
 Code keeps in two or more of your projects. It suggests them; it never edits `CLAUDE.md` or auto
 memory.
 
+When three lessons name the same tool, brain asks Claude at a clean stop to merge them into one
+skill, at most once a week per tool. The draft waits 3 days, then goes live as
+`~/.claude/skills/brain-<name>/`; `/brain:forget S<n>` stops it. A brain skill nobody calls for
+30 days is removed. There are at most 5, and brain never changes a skill it did not write.
+
 A session starts with one line that lists what changed since the last one. Every change is also
 in `~/.claude/brain/changes.log`.
 
@@ -160,6 +165,9 @@ Uninstalling leaves `~/.claude/brain`. Delete it to remove the records.
   arguments), stores no other text from the session, and keeps every lesson a draft until phase 3.
 - Holdout compares all friction in a session, not the friction a lesson is about, so a lesson
   that helps rarely needs many sessions before its score moves.
+- Lessons are grouped into a skill by the tool their code spans name, not by subject. A skill
+  that does not trigger is retired after 30 days; brain does not rewrite its description, and it
+  does not draft repo skills for colleagues.
 - The transcript format is not documented. A Claude Code update can break the scan; the hooks keep
   working.
 - Node prints that `node:sqlite` is experimental. The hook hides the warning; the API could
