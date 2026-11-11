@@ -1,0 +1,67 @@
+name: Validate
+
+# Push runs are limited to main: other branches are validated through pull_request.
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  shellcheck:
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Lint shell files
+        run: shellcheck plugin/hooks/*.sh tests/*.sh scripts/*.sh
+
+  manifest:
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Manifest is valid and has a changelog entry
+        run: |
+          set -euo pipefail
+          jq -e '.name == "brain" and (.version | test("^[0-9]+\\.[0-9]+\\.[0-9]+$"))' plugin/.claude-plugin/plugin.json
+          jq empty plugin/hooks/hooks.json
+          grep -qF "## [$(jq -r .version plugin/.claude-plugin/plugin.json)]" CHANGELOG.md
+
+  # Diff-based, so it needs a base branch: pull requests only.
+  changelog:
+    if: github.event_name == 'pull_request'
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - name: Shipped changes carry release notes
+        run: scripts/check-changelog.sh "${{ github.base_ref }}"
+
+  tests:
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      # node:sqlite needs Node 22.13 or later; the runner's default Node may be older.
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+      # Every suite: the hook and the Node suite (capture), and the release scripts (release).
+      - name: Tests
+        run: |
+          fail=0
+          for t in tests/*.test.sh; do echo "== $t"; bash "$t" || fail=1; done
+          exit "$fail"

@@ -1,0 +1,64 @@
+name: Bug report
+description: A signal is missing or wrong in the records, the report is wrong, or the hook does the wrong thing.
+title: "fix: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Raw text, a secret or tool output in `brain.db`, or a file another user can read, is a
+        security bug. Report it privately as SECURITY.md describes, not here.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What brain recorded or reported, and what you expected instead.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: How to reproduce
+      description: What you did in the session (a prompt, a failing command, a denied permission, Esc).
+    validations:
+      required: true
+  - type: textarea
+    id: output
+    attributes:
+      label: Report or errors
+      description: The `/brain:report` output, and any lines from `~/.claude/brain/errors.log`. Remove anything private.
+      render: text
+  - type: input
+    id: brain-version
+    attributes:
+      label: brain version
+      description: From `claude plugin list`.
+      placeholder: "0.1.0"
+    validations:
+      required: true
+  - type: input
+    id: claude-code-version
+    attributes:
+      label: Claude Code version
+      description: From `claude --version`.
+    validations:
+      required: true
+  - type: input
+    id: node-version
+    attributes:
+      label: Node version
+      description: From `node --version`. brain needs 22.13 or later.
+    validations:
+      required: true
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options:
+        - macOS
+        - Linux
+        - Windows (Git Bash)
+        - Windows (WSL)
+        - Other
+    validations:
+      required: true
