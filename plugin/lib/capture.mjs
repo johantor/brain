@@ -7,6 +7,7 @@ import path from 'node:path';
 import { openDb, tx } from './db.mjs';
 import { readConfig } from './config.mjs';
 import { brainDir, isMain } from './paths.mjs';
+import { syncLearned, writeLearned } from './manage.mjs';
 import { decide } from './reflect.mjs';
 import { scan } from './scan.mjs';
 import { projectNames, scrub } from './scrub.mjs';
@@ -103,8 +104,15 @@ export async function main() {
   try {
     db = openDb();
     record(db, payload);
-    // The scan also backfills every transcript on the first run after install.
-    if (payload?.hook_event_name === 'SessionStart') await scan(db);
+    if (payload?.hook_event_name === 'SessionStart') {
+      // The user's edits to learned.md first, so the next load sees them.
+      if (readConfig().learn) {
+        tx(db, () => syncLearned(db));
+        writeLearned(db);
+      }
+      // The scan also backfills every transcript on the first run after install.
+      await scan(db);
+    }
     if (payload?.hook_event_name === 'Stop' && typeof payload.session_id === 'string') {
       const enabled = readConfig().reflect;
       const context = enabled ? tx(db, () => decide(db, payload, { enabled })) : null;

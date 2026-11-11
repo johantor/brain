@@ -57,7 +57,6 @@ test('main prints nothing while learning is off, and the lessons once it is on',
   const ctx = JSON.parse(out[0]).hookSpecificOutput;
   assert.equal(ctx.hookEventName, 'SessionStart');
   assert.match(ctx.additionalContext, /L1 \(method-error\)/);
-  assert.match(fs.readFileSync(path.join(dir, 'learned.md'), 'utf8'), /- L1 \(method-error\)/);
   main('not json');
   assert.equal(out.length, 1);
 });

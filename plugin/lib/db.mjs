@@ -24,6 +24,10 @@ CREATE TABLE IF NOT EXISTS transcripts (sid TEXT PRIMARY KEY, sig TEXT NOT NULL)
 CREATE TABLE IF NOT EXISTS lessons (
   id INTEGER PRIMARY KEY AUTOINCREMENT, key TEXT NOT NULL UNIQUE, description TEXT NOT NULL,
   kind TEXT NOT NULL, scope TEXT NOT NULL, project TEXT, status TEXT NOT NULL, created INTEGER NOT NULL);
+-- Every change to a lesson, with what it replaced, so /brain:undo can reverse the latest.
+CREATE TABLE IF NOT EXISTS changes (
+  id INTEGER PRIMARY KEY, ts INTEGER NOT NULL, lesson INTEGER NOT NULL, action TEXT NOT NULL,
+  before TEXT, undone INTEGER NOT NULL DEFAULT 0);
 -- A denied dialog has no hook of its own: it is a permission request whose call never ran.
 CREATE VIEW IF NOT EXISTS denials AS
   SELECT p.* FROM events p WHERE p.kind = 'permission' AND NOT EXISTS (
