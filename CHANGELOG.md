@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- The plugin description covers the `brain` skill and shadow reflection (#11).
+- The plugin description covers the `brain` skill and shadow reflection (#12).
 
 ## [0.4.0] - 2026-11-11
 
