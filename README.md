@@ -8,8 +8,9 @@
 work out what went wrong, and make the next session better, with no `/learn` step. The design is
 [#3](https://github.com/johantor/brain/issues/3).
 
-This is **phase 1, Record**. brain records the signals and learns nothing yet. No model runs, and
-nothing is loaded into a session. The gate to phase 2 is two weeks of records that look right.
+brain records the signals and answers questions about them. It learns nothing yet: no lesson is
+loaded into a session. Phase 2 ([#4](https://github.com/johantor/brain/issues/4)) adds reflection
+in shadow mode.
 
 ```bash
 claude plugin marketplace add johantor/plugins
@@ -43,6 +44,13 @@ Use Claude Code as usual. After a few sessions, run:
 It prints one row per project (sessions, prompts, failures, denials, interrupts, tokens out),
 the calls that failed twice or more in one session, and the queue. `--days <n>` changes the
 window; the default is 14.
+
+## Asking about your sessions
+
+Ask in plain words: "what keeps failing in this repo?", "where do my tokens go?", "which skills
+should I create?". The `brain` skill queries the records through a read-only connection and
+answers with counts and dates, then a suggestion. It reads the current project only, unless you
+ask across projects. It suggests; it creates nothing.
 
 ## How it works
 

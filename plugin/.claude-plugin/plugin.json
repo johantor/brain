@@ -1,6 +1,6 @@
 {
   "name": "brain",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "license": "Apache-2.0",
   "description": "Learns from every Claude Code session. Phase 1 records: hooks write each session's prompts, failing tool calls, denied permissions, interrupts and token use to a local SQLite file, with secrets and paths scrubbed. No model runs. /brain:report shows the records.",
   "author": {

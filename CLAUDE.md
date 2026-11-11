@@ -77,6 +77,11 @@ Paths in *Map* and *Gotchas* are relative to `plugin/`, the directory users inst
 - `lib/report.mjs` and `commands/report.md`: `/brain:report [--days N]`, one row per project
   (by `cwd`), event counts and repeated failures within the window, interrupts and tokens as
   whole-session totals, the queue.
+- `lib/ask.mjs` and `skills/brain/SKILL.md`: the `brain` skill runs one `SELECT`/`WITH` per call
+  on a `readOnly` connection and prints tab-separated rows (at most 200, cells clipped). Temp
+  views `my_sessions`, `my_events`, `my_denials`, `my_queue` hold the project of `--cwd`
+  (`projectRoot()`: the nearest `.git`, else the folder) and its subfolders; `--all` uses the base
+  tables. The scope steers answers; it is not a boundary, since every row is the user's own.
 - `lib/paths.mjs`: `brainDir()` (`CLAUDE_BRAIN_DIR`), `projectsDir()` (`CLAUDE_CONFIG_DIR`),
   `isMain()` (real paths, so a symlinked install runs its main).
 - `tests/capture.test.sh`: the hook end to end, then `node --test tests/*.test.mjs`. Node 22.13+
