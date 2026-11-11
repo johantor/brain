@@ -9,7 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Phase 1, Record: hooks write each session's prompts, failing tool calls, permission requests and
-  end to `~/.claude/brain/brain.db`, scrubbed, with no model. A transcript scan adds token use,
-  interrupts and sessions with no `SessionEnd`, and backfills 90 days on the first run.
-  `/brain:report` shows the records per project.
+- Hooks record scrubbed prompts, failing tool calls, permission requests and session ends to
+  `~/.claude/brain/brain.db`, with no model; tool output is never stored (#1).
+- A transcript scan adds token use, interrupts and sessions with no `SessionEnd`, and backfills
+  90 days on the first run (#1).
+- `/brain:report` shows the records per project (#1).

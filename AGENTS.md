@@ -42,15 +42,23 @@ Node 22.13 or later and `jq` are required.
 
 ## Releasing
 
-**A change under `plugin/` bumps the version.** Only `plugin/` reaches users, so nothing else
-counts. Patch for a fix, minor for an addition, major for a break.
+One rule holds: **a change under `plugin/` bumps the version.** A tag carries everything merged
+since the previous tag, so an unbumped change ships inside the next release, described nowhere.
+Only `plugin/` reaches users, so only `plugin/` counts; a comment inside a shipped hook counts
+too. Patch for a fix, minor for an addition, major for a break; several in a day is fine.
 
-1. Bump `version` in `plugin/.claude-plugin/plugin.json` and add a matching `## [X.Y.Z]` entry to
-   `CHANGELOG.md` in the same PR. `check-changelog.sh` fails a change under `plugin/` without one.
-2. Merge to `main`. `auto-release.yml` creates the `v<version>` tag and a GitHub Release from that
-   changelog section.
+1. Bump `version` in `plugin/.claude-plugin/plugin.json` and add a matching `CHANGELOG.md` entry
+   in the same PR. CI's `manifest` job fails unless they agree, and `check-changelog.sh` fails a
+   change under `plugin/` without a bump; `tests/release.test.sh` pins it. crew and board use the
+   same script.
+2. Merge to `main`. `auto-release.yml` sees the version has no `v<version>` tag, and creates the
+   tag and GitHub Release with that version's changelog section (`scripts/release-notes.sh`). No
+   entry → it skips with a warning.
+3. After the first release, and when the description changes, update brain's entry in the
+   marketplace, [johantor/plugins](https://github.com/johantor/plugins).
 
-Changelog entries are one bullet per change, one line, with the PR as `(#N)`.
+**Changelog entries are terse.** One bullet per change under its Keep-a-Changelog heading, one
+line, two at most: *what changed*, with the PR as `(#N)`. The why belongs in the PR and commit.
 
 ## Conventions
 
