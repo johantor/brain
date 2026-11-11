@@ -45,9 +45,10 @@ not the shell, and nothing is pushed until the operator runs `/crew:pr`.
 
 Paths in *Map* and *Gotchas* are relative to `plugin/`, the directory users install.
 
-- `hooks/capture.sh`: the one hook, wired on 6 events in `hooks/hooks.json`, async on all but
-  `SessionEnd` (synchronous, `timeout: 5`, so its row lands before the process exits;
-  `capture.test.sh` asserts the split). Exits at once when `CLAUDE_CODE_REMOTE=true`. Runs
+- `hooks/capture.sh`: the one hook, wired on 7 events in `hooks/hooks.json`. Synchronous with
+  `timeout: 5`: `SessionEnd` (its row lands before the process exits), `Stop` (it decides on
+  reflection), `UserPromptSubmit` and `PostToolUseFailure` (their rows land before their turn's
+  `Stop`). The rest are async; `capture.test.sh` asserts the split. Exits at once when `CLAUDE_CODE_REMOTE=true`. Runs
   `node --disable-warning=ExperimentalWarning lib/capture.mjs` and always exits 0.
 - `lib/capture.mjs`: `record(db, payload)` writes one hook payload in one transaction: it upserts
   the session (`cwd` and `started` first seen, `last` the latest) and adds one `events` row.
@@ -82,7 +83,8 @@ Paths in *Map* and *Gotchas* are relative to `plugin/`, the directory users inst
   on a `readOnly` connection and prints tab-separated rows (at most 200, cells clipped). Temp
   views `my_sessions`, `my_events`, `my_denials`, `my_queue` hold the project of `--cwd`
   (`projectRoot()`: the nearest `.git`, else the folder) and its subfolders, and `my_lessons` the
-  global lessons plus that project's; `--all` uses the base tables. The scope steers answers; it is not a boundary, since every row is the user's own.
+  global lessons plus that project's; `--all` uses the base tables. The scope steers answers;
+  it is not a boundary, since every row is the user's own.
 - `lib/lessons.mjs`: one OKF v0.2 file per lesson, `lessons/L<id>.md`, the source of truth;
   frontmatter values are JSON (valid YAML), so `parse()` needs no YAML parser. The body holds no
   session text. `lessons/index.md` carries `okf_version` and lists every lesson. A lesson file is
@@ -94,6 +96,19 @@ Paths in *Map* and *Gotchas* are relative to `plugin/`, the directory users inst
   becomes a project lesson, and its code spans may hold only a tool and flags. `store()` needs
   every session in the records and in the proposing project, and refuses a repeat (`key`: scope,
   project and normalized text, checked inside the write transaction). It writes a `draft`.
+- `lib/reflect.mjs`: `decide(db, payload, { enabled })` for `Stop`. Friction is `tool_fail`,
+  `denials` and `CORRECTION` prompts after the session's last `reflect` row. It asks when there
+  is friction and none inside this turn (a correction opens its own turn), else, in a clean
+  session, for one queued session of the same project. Skips when off, on `stop_hook_active`,
+  with `background_tasks`, or after 3 per session. `capture.mjs` runs it in one transaction, so
+  two sessions cannot claim one queued session. Asking adds a `reflect` row to the session that
+  runs it and a `reflected` row (no cost, not counted) to a queued one; friction counts from the
+  later of the two. `capture.mjs` prints the request as `hookSpecificOutput.additionalContext`,
+  not a block. The scan stores each
+  reflection's token cost in that row's `code`.
+- `lib/config.mjs` and `commands/shadow.md`: `config.json`, `reflect` off by default.
+- `skills/reflect/SKILL.md`: drafts at most two lessons from the user's words, never tool output,
+  and runs the `propose.mjs` path the hook message names.
 - `lib/paths.mjs`: `brainDir()` (`CLAUDE_BRAIN_DIR`), `projectsDir()` (`CLAUDE_CONFIG_DIR`),
   `isMain()` (real paths, so a symlinked install runs its main).
 - `tests/capture.test.sh`: the hook end to end, then `node --test tests/*.test.mjs`. Node 22.13+
@@ -109,5 +124,5 @@ Paths in *Map* and *Gotchas* are relative to `plugin/`, the directory users inst
   timestamps.
 - The transcript format is undocumented: every field is optional, and a line that does not parse
   is skipped. One reply is several lines that repeat `message.id` and `usage`.
-- Phase 1 has no model and no `Stop` hook. The design's synchronous `UserPromptSubmit` and
-  `PostToolUseFailure` arrive with phase 2's reflection, which needs them in order.
+- `PermissionRequest` and `PostToolUse` stay async, so at `Stop` an approved call can still look
+  denied. It only delays a reflection by a turn: the late row clears the denial.

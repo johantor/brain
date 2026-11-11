@@ -36,7 +36,7 @@ async function readFile(file, acc, main) {
     }
     const msg = line.message;
     // One reply is written as several lines that repeat its id and usage: count it once.
-    if (line.type === 'assistant' && typeof msg?.id === 'string' && msg.usage) acc.usage.set(msg.id, msg.usage);
+    if (line.type === 'assistant' && typeof msg?.id === 'string' && msg.usage) acc.usage.set(msg.id, { u: msg.usage, t });
     if (!main) continue;
     if (line.type === 'assistant' && typeof msg?.model === 'string' && !msg.model.startsWith('<')) acc.model = msg.model;
     if (typeof line.cwd === 'string' && line.cwd) acc.cwd ??= line.cwd;
@@ -48,7 +48,7 @@ async function readFile(file, acc, main) {
 export async function readSession(files) {
   const acc = { usage: new Map(), interrupts: 0 };
   for (const [i, file] of files.entries()) await readFile(file, acc, i === 0);
-  const sum = (...keys) => [...acc.usage.values()].reduce((n, u) => n + keys.reduce((m, k) => m + (Number(u[k]) || 0), 0), 0);
+  const sum = (...keys) => [...acc.usage.values()].reduce((n, { u }) => n + keys.reduce((m, k) => m + (Number(u[k]) || 0), 0), 0);
   return {
     cwd: acc.cwd ?? null,
     first: acc.first ?? null,
@@ -59,7 +59,23 @@ export async function readSession(files) {
     tokensCached: sum('cache_read_input_tokens'),
     tokensOut: sum('output_tokens'),
     interrupts: acc.interrupts,
+    replies: [...acc.usage.values()],
   };
+}
+
+const spent = (u) => ['input_tokens', 'cache_creation_input_tokens', 'output_tokens'].reduce((n, k) => n + (Number(u[k]) || 0), 0);
+
+// What each reflection cost: the tokens of the replies between its Stop hook and the
+// session's next prompt, stored in the reflect row's `code` (#4, "measure").
+function costReflections(db, sid, replies) {
+  const reflects = db.prepare("SELECT id, ts FROM events WHERE sid = ? AND kind = 'reflect'").all(sid);
+  if (!reflects.length) return;
+  const nextPrompt = db.prepare("SELECT min(ts) AS t FROM events WHERE sid = ? AND kind = 'prompt' AND ts > ?");
+  for (const r of reflects) {
+    const end = nextPrompt.get(sid, r.ts).t ?? Infinity;
+    const tokens = replies.filter((x) => x.t >= r.ts && x.t < end).reduce((n, x) => n + spent(x.u), 0);
+    db.prepare('UPDATE events SET code = ? WHERE id = ?').run(tokens, r.id);
+  }
 }
 
 // Hooks own cwd and start; the transcript owns what only it knows.
@@ -115,6 +131,7 @@ export async function scan(db, dir = projectsDir(), now = Date.now()) {
       tx(db, () => {
         db.prepare(UPSERT).run(sid, s.cwd, s.first, s.last, s.model, s.version, s.tokensIn, s.tokensCached, s.tokensOut, s.interrupts);
         db.prepare('INSERT INTO transcripts (sid, sig) VALUES (?, ?) ON CONFLICT(sid) DO UPDATE SET sig = excluded.sig').run(sid, sig);
+        costReflections(db, sid, s.replies);
       });
     } catch {
       // One unreadable transcript must not hide the rest.

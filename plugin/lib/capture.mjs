@@ -5,7 +5,9 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { openDb, tx } from './db.mjs';
+import { readConfig } from './config.mjs';
 import { brainDir, isMain } from './paths.mjs';
+import { decide } from './reflect.mjs';
 import { scan } from './scan.mjs';
 import { projectNames, scrub } from './scrub.mjs';
 
@@ -60,6 +62,7 @@ export function record(db, p, now = Date.now()) {
     PostToolUse: () => event('tool_ok', call()),
     PostToolUseFailure: () => event('tool_fail', { ...call(), code: exitCode(p.error), text: program(p, projectNames(p.cwd)) }),
     PermissionRequest: () => event('permission', call()),
+    Stop: () => {},
     SessionEnd: () => {
       db.prepare('UPDATE sessions SET ended = ?, end_reason = ? WHERE sid = ?').run(now, p.reason ?? null, sid);
       // A session the scan already queued as `no-end` did end after all.
@@ -102,6 +105,13 @@ export async function main() {
     record(db, payload);
     // The scan also backfills every transcript on the first run after install.
     if (payload?.hook_event_name === 'SessionStart') await scan(db);
+    if (payload?.hook_event_name === 'Stop' && typeof payload.session_id === 'string') {
+      const enabled = readConfig().reflect;
+      const context = enabled ? tx(db, () => decide(db, payload, { enabled })) : null;
+      // additionalContext, not a block: Claude continues, and the transcript shows hook
+      // feedback rather than a hook error (#3, "Reflect").
+      if (context) process.stdout.write(JSON.stringify({ hookSpecificOutput: { hookEventName: 'Stop', additionalContext: context } }));
+    }
   } catch (err) {
     logError(err);
   } finally {
