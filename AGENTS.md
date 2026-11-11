@@ -2,7 +2,7 @@
 
 `brain` is a Claude Code plugin. The plugin lives in `plugin/`, the directory the marketplace
 installs, so the repo tooling around it never reaches users. The design is
-[johantor/plugins#5](https://github.com/johantor/plugins/issues/5); a change that departs from it
+[#3](https://github.com/johantor/brain/issues/3); a change that departs from it
 says so in the PR. The code map and gotchas are in [CLAUDE.md](CLAUDE.md). Keep it accurate: a PR
 that changes anything it states updates it in the same commit.
 

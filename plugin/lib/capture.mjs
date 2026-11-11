@@ -1,6 +1,6 @@
 // Hook entry: one Claude Code hook payload on stdin becomes rows in brain.db. No
 // model runs here. Tool output is never stored, only its status, so a fetched page
-// cannot plant text that a later reflection reads (#5, "Prompt injection").
+// cannot plant text that a later reflection reads (#3, "Signals").
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';

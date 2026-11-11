@@ -6,7 +6,7 @@
 **Learns from every Claude Code session.** brain is a
 [Claude Code](https://code.claude.com/docs/en/overview) plugin that will read each finished session,
 work out what went wrong, and make the next session better, with no `/learn` step. The design is
-[johantor/plugins#5](https://github.com/johantor/plugins/issues/5).
+[#3](https://github.com/johantor/brain/issues/3).
 
 This is **phase 1, Record**. brain records the signals and learns nothing yet. No model runs, and
 nothing is loaded into a session. The gate to phase 2 is two weeks of records that look right.
