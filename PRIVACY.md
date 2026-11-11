@@ -17,7 +17,9 @@ and working directory, your prompts with secrets, URLs, e-mail addresses, paths,
 project names scrubbed, the tool name, exit code and Bash program of each failing call, a hash of
 each tool call's input, and timestamps. They never store tool output. At each session start the
 plugin reads the transcripts under `~/.claude/projects` for token counts, interrupts, the model and
-the Claude Code version. Records are deleted after 90 days. Errors go to `~/.claude/brain/errors.log`
+the Claude Code version. Records are deleted after 90 days. Draft lessons are stored as files in
+`~/.claude/brain/lessons/`, scrubbed the same way, and each change to one is logged in
+`~/.claude/brain/changes.log`. Errors go to `~/.claude/brain/errors.log`
 without the hook payload.
 
 ## Data that leaves your machine

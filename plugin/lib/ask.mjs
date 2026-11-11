@@ -27,7 +27,9 @@ function scopeViews(db, root) {
   const inScope = "cwd = $root OR substr(cwd, 1, length($root) + 1) IN ($root || '/', $root || '\\')";
   const sids = db.prepare(`SELECT sid FROM sessions WHERE ${inScope}`).all({ root }).map((r) => r.sid);
   const list = sids.map((s) => `'${s.replace(/'/g, "''")}'`).join(',') || "''";
-  for (const v of ['my_sessions', 'my_events', 'my_denials', 'my_queue']) db.exec(`DROP VIEW IF EXISTS temp.${v}`);
+  for (const v of ['my_sessions', 'my_events', 'my_denials', 'my_queue', 'my_lessons']) db.exec(`DROP VIEW IF EXISTS temp.${v}`);
+  db.exec(`CREATE TEMP VIEW my_lessons AS SELECT * FROM main.lessons
+    WHERE scope = 'global' OR project = '${root.replace(/'/g, "''")}'`);
   db.exec(`
     CREATE TEMP VIEW my_sessions AS SELECT * FROM main.sessions WHERE sid IN (${list});
     CREATE TEMP VIEW my_events AS SELECT * FROM main.events WHERE sid IN (${list});

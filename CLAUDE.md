@@ -66,7 +66,8 @@ Paths in *Map* and *Gotchas* are relative to `plugin/`, the directory users inst
   `tx()`, `prune()`. Tables: `sessions` (sid, cwd, started, last, ended, end_reason, model,
   version, tokens_in, tokens_cached, tokens_out, interrupts), `events` (sid, ts, kind, tool, call,
   code, text), `queue` (sid, reason `end`|`no-end`, ts), `transcripts` (sid, sig: mtime and size
-  of each file). View `denials`: a `permission` row with no later `tool_ok`/`tool_fail` of the same
+  of each file), `lessons` (id, key, description, kind, scope, project, status, created: an index
+  of the lesson files). View `denials`: a `permission` row with no later `tool_ok`/`tool_fail` of the same
   call. Retention: records 90 days, queue 7.
 - `lib/scan.mjs`: `scan(db)` reads `<config>/projects/*/<sid>.jsonl` and
   `<sid>/subagents/*.jsonl` whole, only when the signature changed, only within 90 days. Tokens
@@ -80,8 +81,16 @@ Paths in *Map* and *Gotchas* are relative to `plugin/`, the directory users inst
 - `lib/ask.mjs` and `skills/brain/SKILL.md`: the `brain` skill runs one `SELECT`/`WITH` per call
   on a `readOnly` connection and prints tab-separated rows (at most 200, cells clipped). Temp
   views `my_sessions`, `my_events`, `my_denials`, `my_queue` hold the project of `--cwd`
-  (`projectRoot()`: the nearest `.git`, else the folder) and its subfolders; `--all` uses the base
-  tables. The scope steers answers; it is not a boundary, since every row is the user's own.
+  (`projectRoot()`: the nearest `.git`, else the folder) and its subfolders, and `my_lessons` the
+  global lessons plus that project's; `--all` uses the base tables. The scope steers answers; it is not a boundary, since every row is the user's own.
+- `lib/lessons.mjs`: one OKF v0.2 file per lesson, `lessons/L<id>.md`, the source of truth;
+  frontmatter values are JSON (valid YAML), so `parse()` needs no YAML parser. `lessons/index.md`
+  carries `okf_version`. Files are written then renamed. `logChange()` appends to `changes.log`.
+- `lib/propose.mjs`: `brain propose` takes one JSON candidate (`description`, `kind`, `sessions`,
+  optional `evidence`) on stdin. `check()` scrubs it and decides: a secret, e-mail or IP rejects
+  in any scope; a global lesson with a version, URL, path or host is rejected, one that names the
+  project becomes a project lesson, and its code spans may hold only a tool and flags. `store()`
+  needs a known session, refuses a repeat (`key`, normalized text), and writes a `draft`.
 - `lib/paths.mjs`: `brainDir()` (`CLAUDE_BRAIN_DIR`), `projectsDir()` (`CLAUDE_CONFIG_DIR`),
   `isMain()` (real paths, so a symlinked install runs its main).
 - `tests/capture.test.sh`: the hook end to end, then `node --test tests/*.test.mjs`. Node 22.13+

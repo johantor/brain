@@ -29,6 +29,7 @@ belong to different clients.
 | `my_events` (`events`) | `sid`, `ts`, `kind`, `tool`, `call`, `code`, `text` |
 | `my_denials` (`denials`) | permission rows whose call never ran |
 | `my_queue` (`queue`) | `sid`, `reason` (`end`, `no-end`), `ts` |
+| `my_lessons` (`lessons`) | `id` (shown as `L<id>`), `description`, `kind`, `scope` (`global`, `project`), `project`, `status` (`draft` = a candidate, not loaded), `created`. `my_lessons` holds global lessons and this project's. |
 
 - Times are milliseconds since the epoch: `datetime(ts / 1000, 'unixepoch')`.
 - `kind` is `prompt` (`text` = the user's prompt, scrubbed), `tool_ok`, `tool_fail` (`code` =
