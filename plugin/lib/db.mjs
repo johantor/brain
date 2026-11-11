@@ -53,6 +53,9 @@ export function openDb(file = dbFile()) {
   const db = new DatabaseSync(file);
   db.exec('PRAGMA busy_timeout = 5000; PRAGMA journal_mode = WAL;');
   db.exec(SCHEMA);
+  // Columns added after the first release: CREATE TABLE IF NOT EXISTS skips an old table.
+  const cols = db.prepare('PRAGMA table_info(lessons)').all().map((c) => c.name);
+  if (!cols.includes('model')) db.exec('ALTER TABLE lessons ADD COLUMN model TEXT');
   return db;
 }
 

@@ -24,11 +24,11 @@ const line = (l) => `- L${l.id} (${l.kind}): ${l.description}`;
 // The lessons to load: pinned ones first, then this project's, then global ones, newest
 // first in each, until the budget is spent. A lesson held out for this session is left
 // out, so holdout scoring can compare (score.mjs).
-export function select(db, root, sid = '') {
-  const rows = db.prepare(`SELECT id, kind, scope, status, description FROM lessons
+export function select(db, root, sid = '', model = '') {
+  const rows = db.prepare(`SELECT id, kind, scope, status, model, description FROM lessons
     WHERE status != 'deprecated' AND (scope = 'global' OR project = ?)
     ORDER BY status = 'stable' DESC, scope = 'project' DESC, created DESC, id DESC`).all(root)
-    .filter((r) => !sid || !held(sid, r));
+    .filter((r) => !sid || !held(sid, r, model));
   const chosen = [];
   let used = HEADER.length;
   for (const r of rows) {
@@ -67,7 +67,8 @@ export function main(input = fs.readFileSync(0, 'utf8')) {
     try {
       db.exec('PRAGMA busy_timeout = 2000');
       if (!db.prepare("SELECT 1 FROM sqlite_master WHERE name = 'lessons'").get()) return;
-      const { chosen, left } = select(db, projectRoot(payload.cwd), typeof payload.session_id === 'string' ? payload.session_id : '');
+      const str = (v) => (typeof v === 'string' ? v : '');
+      const { chosen, left } = select(db, projectRoot(payload.cwd), str(payload.session_id), str(payload.model));
       const text = context(chosen, left);
       const mark = path.join(brainDir(), '.noticed');
       const since = fs.existsSync(mark) ? fs.statSync(mark).mtimeMs : 0;

@@ -92,6 +92,12 @@ compares how often things go wrong with and without it: from 10 sessions on each
 that cuts failures, denials and corrections by a fifth is marked confirmed. Ask "which lessons
 help?" to see the scores.
 
+brain retires lessons on its own, in code: one that makes no difference, a project lesson whose
+project has had no session for 90 days, and one a new model no longer needs. When the model
+changes, each lesson about a mistake sits out its next 5 sessions; if the mistake does not come
+back, the lesson is archived as fixed. Pinned lessons are never retired, and `/brain:undo`
+brings an archived one back.
+
 A session starts with one line that lists what changed since the last one. Every change is also
 in `~/.claude/brain/changes.log`.
 
