@@ -35,9 +35,11 @@ format; code rules are the `engineering-principles` skill
 - **It never blocks or fails a session.** Every path exits 0: no Node, an old Node, bad JSON, an
   unwritable directory, a locked database. A change that can exit non-zero, hang, or run longer
   than its `timeout` is Blocking.
-- **Async by default.** Only `SessionEnd`, `Stop`, `UserPromptSubmit` and `PostToolUseFailure` run
-  in the foreground (`capture.test.sh` asserts it). A new foreground hook needs the reason in
+- **Async by default.** Only `SessionEnd`, `Stop`, `UserPromptSubmit`, `PostToolUseFailure` and
+  `load.sh` at `SessionStart` run in the foreground (`capture.test.sh` asserts it). A new foreground hook needs the reason in
   `CLAUDE.md`.
+- **Loaded lessons steer every session.** Loading stays off by default, stays within `BUDGET`,
+  never loads another project's lessons or a `deprecated` one, and prints nothing on error.
 - **Reflection costs the user's tokens.** It stays off by default, asks at most 3 times a
   session, and never with `stop_hook_active`. A change that can ask more often is Blocking.
 - **No fork per event.** Read files directly (`.git/config` through `readSmall`); never spawn

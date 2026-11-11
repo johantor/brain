@@ -8,9 +8,9 @@
 work out what went wrong, and make the next session better, with no `/learn` step. The design is
 [#3](https://github.com/johantor/brain/issues/3).
 
-brain records the signals, answers questions about them, and can draft lessons in shadow mode.
-No lesson is loaded into a session yet: that is phase 3
-([#5](https://github.com/johantor/brain/issues/5)).
+brain records the signals, answers questions about them, drafts lessons in shadow mode, and can
+load them into each session. Both start off. Phase 3
+([#5](https://github.com/johantor/brain/issues/5)) adds vetoes, scoring and retirement.
 
 ```bash
 claude plugin marketplace add johantor/plugins
@@ -67,14 +67,26 @@ loads into a session. Ask "which lessons did brain draft?" to see them.
 It costs tokens in the session that reflects: at most 3 reflections per session, and
 `/brain:report` shows the average cost. It starts off for that reason. `/brain:shadow off` stops it.
 
+## Loading lessons
+
+```
+/brain:learn on
+```
+
+From the next session on, each session starts with this project's lessons, then the global ones,
+newest first, up to about 1,000 tokens. They are background: your `CLAUDE.md` and your messages
+win, and Claude cites a lesson's ID, such as (L12), when one changes what it does.
+`~/.claude/brain/learned.md` lists the global lessons; the `brain` skill lists all of them.
+`/brain:learn off` stops loading.
+
 ## How it works
 
 1. Hooks on 7 events run `hooks/capture.sh`, which hands the payload to Node. Node writes rows to
    `~/.claude/brain/brain.db`, a SQLite file. Four hooks run in the foreground for up to 5
    seconds: `SessionEnd`, so its row lands before Claude Code exits, `Stop`, which decides on
    reflection, and `UserPromptSubmit` and `PostToolUseFailure`, so their rows land before that
-   decision. None fails a
-   session: no Node, a bad payload or a locked database all exit 0. Errors go to
+   decision. A fifth, `hooks/load.sh` at `SessionStart`, prints the lessons to load. None fails
+   a session: no Node, a bad payload or a locked database all exit 0. Errors go to
    `~/.claude/brain/errors.log`.
 2. At each `SessionStart`, brain reads every transcript under `~/.claude/projects` that changed
    since its last read, whole, with the subagents' transcripts. The first run reads the last 90

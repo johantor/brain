@@ -48,8 +48,15 @@ Paths in *Map* and *Gotchas* are relative to `plugin/`, the directory users inst
 - `hooks/capture.sh`: the one hook, wired on 7 events in `hooks/hooks.json`. Synchronous with
   `timeout: 5`: `SessionEnd` (its row lands before the process exits), `Stop` (it decides on
   reflection), `UserPromptSubmit` and `PostToolUseFailure` (their rows land before their turn's
-  `Stop`). The rest are async; `capture.test.sh` asserts the split. Exits at once when `CLAUDE_CODE_REMOTE=true`. Runs
-  `node --disable-warning=ExperimentalWarning lib/capture.mjs` and always exits 0.
+  `Stop`). The rest are async; `capture.test.sh` asserts the split. Exits at once when
+  `CLAUDE_CODE_REMOTE=true`. Runs `node --disable-warning=ExperimentalWarning lib/capture.mjs`
+  and always exits 0.
+- `hooks/load.sh` and `lib/load.mjs`: a second `SessionStart` hook, in the foreground
+  (`timeout: 5`), apart from the async capture, whose scan can take long. With `learn` on it opens
+  `brain.db` read-only, prints the project's lessons, then global ones, newest first, non-
+  `deprecated`, within `BUDGET` (4,000 characters) as `additionalContext`, and rewrites
+  `learned.md` (every global lesson). Prints nothing when off or on any error, which goes to
+  `errors.log`.
 - `lib/capture.mjs`: `record(db, payload)` writes one hook payload in one transaction: it upserts
   the session (`cwd` and `started` first seen, `last` the latest) and adds one `events` row.
   Kinds: `prompt` (scrubbed text, at most 2000 characters), `tool_ok`, `tool_fail` (`code` from
@@ -106,7 +113,8 @@ Paths in *Map* and *Gotchas* are relative to `plugin/`, the directory users inst
   later of the two. `capture.mjs` prints the request as `hookSpecificOutput.additionalContext`,
   not a block. The scan stores each
   reflection's token cost in that row's `code`.
-- `lib/config.mjs` and `commands/shadow.md`: `config.json`, `reflect` off by default.
+- `lib/config.mjs`, `commands/shadow.md` and `commands/learn.md`: `config.json`, with `reflect`
+  and `learn` both off by default.
 - `skills/reflect/SKILL.md`: drafts at most two lessons from the user's words, never tool output,
   and runs the `propose.mjs` path the hook message names.
 - `lib/paths.mjs`: `brainDir()` (`CLAUDE_BRAIN_DIR`), `projectsDir()` (`CLAUDE_CONFIG_DIR`),

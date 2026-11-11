@@ -80,6 +80,14 @@ if jq -e --argjson s "$sync" '[.hooks | to_entries[] | select(.key as $k | $s | 
 else
   _fail "every other brain hook must be async"
 fi
+# SessionStart has two: the async capture and scan, and the foreground load, which can print context.
+if jq -e '.hooks.SessionStart[1].hooks[0] | (.command | endswith("/hooks/load.sh")) and (.async != true) and (.timeout | type == "number")' "$wiring" >/dev/null; then
+  _pass
+else
+  _fail "SessionStart must run load.sh in the foreground with a timeout"
+fi
+CLAUDE_CODE_REMOTE=true assert_allow "load in the cloud" "load.sh" '{"session_id":"s9","hook_event_name":"SessionStart","cwd":"/w/acme"}'
+if [ -z "$_stdout" ]; then _pass; else _fail "load.sh printed in a cloud session: $_stdout"; fi
 
 # Stop prints a reflection request only when reflection is on and a turn ended clean after friction.
 stop='{"session_id":"r1","hook_event_name":"Stop","cwd":"/w/acme"}'

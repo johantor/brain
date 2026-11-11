@@ -62,8 +62,8 @@ line, two at most: *what changed*, with the PR as `(#N)`. The why belongs in the
 
 ## Conventions
 
-- Hooks never block a session: `capture.sh` always exits 0, and only the four hooks `CLAUDE.md`
-  names in *Map* run synchronously.
+- Hooks never block a session: `capture.sh` and `load.sh` always exit 0, and only the hooks
+  `CLAUDE.md` names as synchronous in *Map* run in the foreground.
 - Tool output is never stored, and free text is scrubbed before it is (README, *Privacy*).
 - No runtime dependencies beyond Node's standard library.
 - Code follows the `engineering-principles` skill (`.github/skills/engineering-principles/`).

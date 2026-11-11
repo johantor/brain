@@ -83,7 +83,7 @@ export function record(db, p, now = Date.now()) {
 
 // Errors go to a file, not stderr: no one reads an async hook's stderr, and phase 1's
 // gate is "the records look right". The payload never goes in.
-function logError(err) {
+export function logError(err) {
   try {
     const line = `${new Date().toISOString()} ${err?.name ?? 'Error'}: ${String(err?.message ?? err).slice(0, 300)}\n`;
     fs.appendFileSync(path.join(brainDir(), 'errors.log'), line, { mode: 0o600 });
