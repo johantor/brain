@@ -1,0 +1,41 @@
+name: Auto-release
+
+# Create a GitHub Release (and its tag) when the version is bumped on main
+# AND CHANGELOG.md has an entry for that version.
+
+on:
+  push:
+    branches:
+      - main
+
+permissions: {}
+
+jobs:
+  release:
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # Full history: a shallow checkout does not deliver every tag.
+          fetch-depth: 0
+
+      - name: Create a release for the current version
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          version="$(jq -r '.version' plugin/.claude-plugin/plugin.json)"
+          tag="v${version}"
+          if git rev-parse --verify "refs/tags/${tag}" >/dev/null 2>&1; then
+            echo "Tag $tag already exists – skipping."
+            exit 0
+          fi
+          if ! grep -qF "## [${version}]" CHANGELOG.md; then
+            echo "::warning::No CHANGELOG entry for $tag – skipping."
+            exit 0
+          fi
+          scripts/release-notes.sh . "$version" > /tmp/release-notes.md
+          gh release create "$tag" --repo "$GITHUB_REPOSITORY" \
+            --title "brain v${version}" --notes-file /tmp/release-notes.md
