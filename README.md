@@ -100,6 +100,9 @@ Uninstalling leaves `~/.claude/brain`. Delete it to remove the records.
   model, which is phase 2.
 - An approved call that is still running, or an identical call that runs once after two requests,
   counts as a denial until it finishes.
+- `brain propose` cannot prove that a lesson's words came from you and not from a page Claude
+  read. It blocks the forms an injected rule takes (scripts, URLs, paths, commands with
+  arguments), stores no other text from the session, and keeps every lesson a draft until phase 3.
 - The transcript format is not documented. A Claude Code update can break the scan; the hooks keep
   working.
 - Node prints that `node:sqlite` is experimental. The hook hides the warning; the API could

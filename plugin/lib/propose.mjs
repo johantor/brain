@@ -3,7 +3,7 @@
 // "Propose"). Phase 2 stores every accepted lesson as `draft`: nothing loads.
 import fs from 'node:fs';
 import { tx, openDb } from './db.mjs';
-import { KINDS, logChange, writeLesson } from './lessons.mjs';
+import { KINDS, logChange, maxFileId, writeLesson } from './lessons.mjs';
 import { isMain } from './paths.mjs';
 import { projectRoot } from './ask.mjs';
 import { projectNames, scrub } from './scrub.mjs';
@@ -15,6 +15,8 @@ const VERSION = JSON.parse(fs.readFileSync(new URL('../.claude-plugin/plugin.jso
 const NEVER = /<(secret|email|ip)>/;
 const NOT_GLOBAL = /<(secret|email|ip|url|path|host|project)>/;
 const VERSION_RE = /\b\d+\.\d+(?:\.\d+)?\b/;
+// A script by name, with or without backticks: `setup.sh`, deploy.ps1.
+const SCRIPT_RE = /\b[\w-]+\.(?:sh|bash|zsh|ps1|psm1|bat|cmd|exe|py|rb|pl|js|mjs|cjs|ts)\b/i;
 
 // A code span names a tool and its flags, never a script or arguments: `rg`, `grep -r`.
 // That blocks an injected `setup.sh --trust` from becoming a global habit.
@@ -36,7 +38,7 @@ export function check(c, { names = [], cwd } = {}) {
   const raw = c.description.trim().replace(/\s+/g, ' ');
   if (raw.length < 20 || raw.length > 300) return { reject: 'description must be one statement of 20 to 300 characters' };
   if (!Array.isArray(c.sessions) || !c.sessions.length || !c.sessions.every((s) => typeof s === 'string')) {
-    return { reject: 'sessions must list the session ids the evidence comes from' };
+    return { reject: 'sessions must list the session ids the lesson comes from' };
   }
   const text = scrub(raw, names);
   if (NEVER.test(text)) return { reject: 'it holds a secret, an e-mail address or an IP address' };
@@ -48,38 +50,47 @@ export function check(c, { names = [], cwd } = {}) {
     }
     scope = 'project';
   }
-  if (scope === 'global' && !codeSpansOk(text)) {
+  if (scope === 'global' && (!codeSpansOk(text) || SCRIPT_RE.test(text))) {
     return { reject: 'a global lesson may name a tool and its flags, not a script or a command with arguments' };
   }
-  if (scope === 'project' && !cwd) return { reject: 'a project lesson needs the project directory' };
-  const evidence = typeof c.evidence === 'string' ? scrub(c.evidence, names).slice(0, 2000) : '';
-  return { lesson: { description: text, kind: c.kind, scope, project: scope === 'project' ? projectRoot(cwd) : null, evidence, sessions: c.sessions } };
+  if (!cwd) return { reject: 'the project directory is required' };
+  return { lesson: { description: text, kind: c.kind, scope, root: projectRoot(cwd), sessions: [...new Set(c.sessions)] } };
 }
 
-// Stores a checked lesson as a draft. A known session is required, and a lesson that
-// says the same as one already stored is refused.
+// Stores a checked lesson as a draft. Every session must be in the records and in the
+// proposing project, so ids stay ids and one client's session never feeds another's
+// lesson. A repeat in the same scope and project is refused.
 export function store(db, lesson, now = Date.now()) {
-  const known = db.prepare('SELECT count(*) AS n FROM sessions WHERE sid = ?');
-  if (!lesson.sessions.some((s) => known.get(s).n)) return { reject: 'none of the sessions is in the records' };
-  const key = normalize(lesson.description);
-  const dup = db.prepare('SELECT id FROM lessons WHERE key = ?').get(key);
-  if (dup) return { reject: `it repeats L${dup.id}` };
-  const model = db.prepare(`SELECT model, version FROM sessions WHERE sid IN (${lesson.sessions.map(() => '?').join(',')})
-    AND model IS NOT NULL ORDER BY last DESC LIMIT 1`).get(...lesson.sessions);
+  const where = db.prepare('SELECT cwd, model, version, last FROM sessions WHERE sid = ?');
+  const rows = lesson.sessions.map((s) => where.get(s));
+  if (rows.some((r) => !r)) return { reject: 'a session is not in the records' };
+  if (rows.some((r) => !r.cwd || projectRoot(r.cwd) !== lesson.root)) return { reject: 'a session belongs to another project' };
+  const project = lesson.scope === 'project' ? lesson.root : null;
+  const key = `${lesson.scope}:${project ?? ''}:${normalize(lesson.description)}`;
+  const latest = rows.filter((r) => r.model).sort((a, b) => b.last - a.last)[0];
   return tx(db, () => {
-    const { lastInsertRowid: id } = db.prepare(`INSERT INTO lessons (key, description, kind, scope, project, status, created)
-      VALUES (?, ?, ?, ?, ?, 'draft', ?)`).run(key, lesson.description, lesson.kind, lesson.scope, lesson.project, now);
+    // Inside the write lock, so two proposals cannot both pass the check.
+    const dup = db.prepare('SELECT id FROM lessons WHERE key = ?').get(key);
+    if (dup) return { reject: `it repeats L${dup.id}` };
+    // The files are the source of truth: never reuse a number a file already holds.
+    const id = Math.max(db.prepare('SELECT coalesce(max(id), 0) AS m FROM lessons').get().m, maxFileId()) + 1;
+    db.prepare(`INSERT INTO lessons (id, key, description, kind, scope, project, status, created)
+      VALUES (?, ?, ?, ?, ?, ?, 'draft', ?)`).run(id, key, lesson.description, lesson.kind, lesson.scope, project, now);
+    logChange(`L${id} proposed draft ${lesson.scope} ${lesson.kind}: ${lesson.description}`, now);
+    // Last, so a failure before it leaves no file behind.
     writeLesson({
-      ...lesson,
       id,
+      description: lesson.description,
+      kind: lesson.kind,
+      scope: lesson.scope,
+      project,
       status: 'draft',
       by: `brain/${VERSION}`,
       at: new Date(now).toISOString(),
       sources: lesson.sessions.map((s, i) => ({ id: `s${i + 1}`, resource: `session:${s}` })),
-      observedWith: { claude_code: model?.version ?? null, model: model?.model ?? null },
-    });
-    logChange(`L${id} proposed draft ${lesson.scope} ${lesson.kind}: ${lesson.description}`, now);
-    return { id: Number(id) };
+      observedWith: { claude_code: latest?.version ?? null, model: latest?.model ?? null },
+    }, db.prepare('SELECT id, description FROM lessons ORDER BY id').all());
+    return { id };
   });
 }
 
