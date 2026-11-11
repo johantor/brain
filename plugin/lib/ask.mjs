@@ -43,11 +43,17 @@ const cell = (v) => {
 export function ask(db, sql, { root, all = false } = {}) {
   if (!/^\s*(SELECT|WITH)\b/i.test(sql)) throw new Error('only one SELECT or WITH query is allowed');
   if (!all) scopeViews(db, root);
-  const rows = db.prepare(sql).all();
+  // Iterate, so a query over every event holds at most MAX_ROWS rows in memory.
+  const rows = [];
+  let more = 0;
+  for (const row of db.prepare(sql).iterate()) {
+    if (rows.length < MAX_ROWS) rows.push(row);
+    else more++;
+  }
   if (!rows.length) return '(no rows)';
   const cols = Object.keys(rows[0]);
-  const out = [cols.join('\t'), ...rows.slice(0, MAX_ROWS).map((r) => cols.map((c) => cell(r[c])).join('\t'))];
-  if (rows.length > MAX_ROWS) out.push(`(${rows.length - MAX_ROWS} more rows; add a LIMIT or aggregate)`);
+  const out = [cols.join('\t'), ...rows.map((r) => cols.map((c) => cell(r[c])).join('\t'))];
+  if (more) out.push(`(${more} more rows; add a LIMIT or aggregate)`);
   return out.join('\n');
 }
 
