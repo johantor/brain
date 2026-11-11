@@ -106,7 +106,8 @@ export async function main() {
     // The scan also backfills every transcript on the first run after install.
     if (payload?.hook_event_name === 'SessionStart') await scan(db);
     if (payload?.hook_event_name === 'Stop' && typeof payload.session_id === 'string') {
-      const context = decide(db, payload, { enabled: readConfig().reflect });
+      const enabled = readConfig().reflect;
+      const context = enabled ? tx(db, () => decide(db, payload, { enabled })) : null;
       // additionalContext, not a block: Claude continues, and the transcript shows hook
       // feedback rather than a hook error (#3, "Reflect").
       if (context) process.stdout.write(JSON.stringify({ hookSpecificOutput: { hookEventName: 'Stop', additionalContext: context } }));

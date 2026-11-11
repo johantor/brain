@@ -100,8 +100,11 @@ Paths in *Map* and *Gotchas* are relative to `plugin/`, the directory users inst
   `denials` and `CORRECTION` prompts after the session's last `reflect` row. It asks when there
   is friction and none inside this turn (a correction opens its own turn), else, in a clean
   session, for one queued session of the same project. Skips when off, on `stop_hook_active`,
-  with `background_tasks`, or after 3 per session. Asking adds a `reflect` event row; `capture.mjs`
-  prints it as `hookSpecificOutput.additionalContext`, not a block. The scan stores each
+  with `background_tasks`, or after 3 per session. `capture.mjs` runs it in one transaction, so
+  two sessions cannot claim one queued session. Asking adds a `reflect` row to the session that
+  runs it and a `reflected` row (no cost, not counted) to a queued one; friction counts from the
+  later of the two. `capture.mjs` prints the request as `hookSpecificOutput.additionalContext`,
+  not a block. The scan stores each
   reflection's token cost in that row's `code`.
 - `lib/config.mjs` and `commands/shadow.md`: `config.json`, `reflect` off by default.
 - `skills/reflect/SKILL.md`: drafts at most two lessons from the user's words, never tool output,

@@ -94,6 +94,8 @@ test('a clean session takes one queued session of the same project', () => {
   assert.match(context, /earlier session in this project \(old\)/);
   assert.deepEqual(db.prepare('SELECT sid FROM queue').all().map((r) => r.sid), ['far']);
   assert.equal(now.stop(), null, 'one per stop, and the queued one is marked');
+  const kinds = db.prepare("SELECT sid, kind FROM events WHERE kind IN ('reflect', 'reflected') ORDER BY sid").all().map((r) => `${r.sid}:${r.kind}`);
+  assert.deepEqual(kinds, ['new:reflect', 'old:reflected'], 'only the session that runs it counts a reflection');
 });
 
 test('the scan stores what each reflection cost', async () => {

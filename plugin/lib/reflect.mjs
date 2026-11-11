@@ -26,6 +26,11 @@ export function friction(db, sid, since) {
 
 const lastTs = (db, sid, kind) => db.prepare('SELECT max(ts) AS t FROM events WHERE sid = ? AND kind = ?').get(sid, kind).t ?? 0;
 
+// Friction counts from the session's last reflection: one it ran (`reflect`), or one
+// another session ran on its record (`reflected`, which costs nothing here).
+const reflectedAt = (db, sid) =>
+  db.prepare("SELECT max(ts) AS t FROM events WHERE sid = ? AND kind IN ('reflect', 'reflected')").get(sid).t ?? 0;
+
 function describe(items) {
   const counts = {};
   for (const f of items) {
@@ -47,7 +52,8 @@ function instruction(sid, what, fromRecord) {
   ].join(' ');
 }
 
-// Returns the additionalContext to send, or null to let the stop proceed.
+// Returns the additionalContext to send, or null to let the stop proceed. Run it in one
+// transaction (capture.mjs does), so two sessions cannot claim the same queued episode.
 export function decide(db, payload, { enabled, now = Date.now() }) {
   if (!enabled || payload.stop_hook_active) return null;
   if (Array.isArray(payload.background_tasks) && payload.background_tasks.length) return null;
@@ -55,7 +61,7 @@ export function decide(db, payload, { enabled, now = Date.now() }) {
   const reflections = db.prepare("SELECT count(*) AS n FROM events WHERE sid = ? AND kind = 'reflect'").get(sid).n;
   if (reflections >= MAX_PER_SESSION) return null;
 
-  const since = lastTs(db, sid, 'reflect');
+  const since = reflectedAt(db, sid);
   const turnStart = lastTs(db, sid, 'prompt');
   const items = friction(db, sid, since);
   // A correction opens the turn it starts; anything else inside this turn means the
@@ -75,10 +81,10 @@ export function decide(db, payload, { enabled, now = Date.now() }) {
   for (const q of db.prepare('SELECT q.sid, s.cwd FROM queue q JOIN sessions s ON s.sid = q.sid WHERE q.sid != ? AND q.ts >= ? ORDER BY q.ts DESC')
     .all(sid, now - QUEUE_DAYS * DAY)) {
     if (!q.cwd || projectRoot(q.cwd) !== root) continue;
-    const past = friction(db, q.sid, lastTs(db, q.sid, 'reflect'));
+    const past = friction(db, q.sid, reflectedAt(db, q.sid));
     db.prepare('DELETE FROM queue WHERE sid = ?').run(q.sid);
     if (!past.length) continue;
-    db.prepare("INSERT INTO events (sid, ts, kind) VALUES (?, ?, 'reflect')").run(q.sid, now);
+    db.prepare("INSERT INTO events (sid, ts, kind) VALUES (?, ?, 'reflected')").run(q.sid, now);
     mark();
     return instruction(q.sid, describe(past), true);
   }
