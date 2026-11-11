@@ -83,27 +83,9 @@ Paths in *Map* and *Gotchas* are relative to `plugin/`, the directory users inst
   on a `readOnly` connection and prints tab-separated rows (at most 200, cells clipped). Temp
   views `my_sessions`, `my_events`, `my_denials`, `my_queue` hold the project of `--cwd`
   (`projectRoot()`: the nearest `.git`, else the folder) and its subfolders, and `my_lessons` the
-  global lessons plus that project's; `--all` uses the base tables. The scope steers answers; it is not a boundary, since every row is the user's own.
+  global lessons plus that project's; `--all` uses the base tables. The scope steers answers;
+  it is not a boundary, since every row is the user's own.
 - `lib/lessons.mjs`: one OKF v0.2 file per lesson, `lessons/L<id>.md`, the source of truth;
-<<<<<<< HEAD
-  frontmatter values are JSON (valid YAML), so `parse()` needs no YAML parser. `lessons/index.md`
-  carries `okf_version`. Files are written then renamed. `logChange()` appends to `changes.log`.
-- `lib/propose.mjs`: `brain propose` takes one JSON candidate (`description`, `kind`, `sessions`,
-  optional `evidence`) on stdin. `check()` scrubs it and decides: a secret, e-mail or IP rejects
-  in any scope; a global lesson with a version, URL, path or host is rejected, one that names the
-  project becomes a project lesson, and its code spans may hold only a tool and flags. `store()`
-  needs a known session, refuses a repeat (`key`, normalized text), and writes a `draft`.
-- `lib/reflect.mjs`: `decide(db, payload, { enabled })` for `Stop`. Friction is `tool_fail`,
-  `denials` and `CORRECTION` prompts after the session's last `reflect` row. It asks when there
-  is friction and none inside this turn (a correction opens its own turn), else, in a clean
-  session, for one queued session of the same project. Skips when off, on `stop_hook_active`,
-  with `background_tasks`, or after 3 per session. Asking adds a `reflect` event row; `capture.mjs`
-  prints it as `hookSpecificOutput.additionalContext`, not a block. The scan stores each
-  reflection's token cost in that row's `code`.
-- `lib/config.mjs` and `commands/shadow.md`: `config.json`, `reflect` off by default.
-- `skills/reflect/SKILL.md`: drafts at most two lessons from the user's words, never tool output,
-  and runs the `propose.mjs` path the hook message names.
-=======
   frontmatter values are JSON (valid YAML), so `parse()` needs no YAML parser. The body holds no
   session text. `lessons/index.md` carries `okf_version` and lists every lesson. A lesson file is
   hard-linked into place, so an existing one is never replaced; `maxFileId()` keeps a lost
@@ -114,7 +96,16 @@ Paths in *Map* and *Gotchas* are relative to `plugin/`, the directory users inst
   becomes a project lesson, and its code spans may hold only a tool and flags. `store()` needs
   every session in the records and in the proposing project, and refuses a repeat (`key`: scope,
   project and normalized text, checked inside the write transaction). It writes a `draft`.
->>>>>>> feat/4-brain-propose
+- `lib/reflect.mjs`: `decide(db, payload, { enabled })` for `Stop`. Friction is `tool_fail`,
+  `denials` and `CORRECTION` prompts after the session's last `reflect` row. It asks when there
+  is friction and none inside this turn (a correction opens its own turn), else, in a clean
+  session, for one queued session of the same project. Skips when off, on `stop_hook_active`,
+  with `background_tasks`, or after 3 per session. Asking adds a `reflect` event row; `capture.mjs`
+  prints it as `hookSpecificOutput.additionalContext`, not a block. The scan stores each
+  reflection's token cost in that row's `code`.
+- `lib/config.mjs` and `commands/shadow.md`: `config.json`, `reflect` off by default.
+- `skills/reflect/SKILL.md`: drafts at most two lessons from the user's words, never tool output,
+  and runs the `propose.mjs` path the hook message names.
 - `lib/paths.mjs`: `brainDir()` (`CLAUDE_BRAIN_DIR`), `projectsDir()` (`CLAUDE_CONFIG_DIR`),
   `isMain()` (real paths, so a symlinked install runs its main).
 - `tests/capture.test.sh`: the hook end to end, then `node --test tests/*.test.mjs`. Node 22.13+
