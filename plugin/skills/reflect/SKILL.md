@@ -25,7 +25,7 @@ is now over. Work out what to learn, briefly. Spend a few hundred tokens, not th
 
    ```bash
    node --disable-warning=ExperimentalWarning "<propose.mjs path>" <<'JSON'
-   {"description": "…", "kind": "method-error", "sessions": ["<session id>"], "evidence": "One or two sentences: the dead end and the fix."}
+   {"description": "…", "kind": "method-error", "sessions": ["<session id>"]}
    JSON
    ```
 

@@ -85,6 +85,7 @@ Paths in *Map* and *Gotchas* are relative to `plugin/`, the directory users inst
   (`projectRoot()`: the nearest `.git`, else the folder) and its subfolders, and `my_lessons` the
   global lessons plus that project's; `--all` uses the base tables. The scope steers answers; it is not a boundary, since every row is the user's own.
 - `lib/lessons.mjs`: one OKF v0.2 file per lesson, `lessons/L<id>.md`, the source of truth;
+<<<<<<< HEAD
   frontmatter values are JSON (valid YAML), so `parse()` needs no YAML parser. `lessons/index.md`
   carries `okf_version`. Files are written then renamed. `logChange()` appends to `changes.log`.
 - `lib/propose.mjs`: `brain propose` takes one JSON candidate (`description`, `kind`, `sessions`,
@@ -102,6 +103,18 @@ Paths in *Map* and *Gotchas* are relative to `plugin/`, the directory users inst
 - `lib/config.mjs` and `commands/shadow.md`: `config.json`, `reflect` off by default.
 - `skills/reflect/SKILL.md`: drafts at most two lessons from the user's words, never tool output,
   and runs the `propose.mjs` path the hook message names.
+=======
+  frontmatter values are JSON (valid YAML), so `parse()` needs no YAML parser. The body holds no
+  session text. `lessons/index.md` carries `okf_version` and lists every lesson. A lesson file is
+  hard-linked into place, so an existing one is never replaced; `maxFileId()` keeps a lost
+  database from reusing a number. `logChange()` appends to `changes.log`.
+- `lib/propose.mjs`: `brain propose` takes one JSON candidate (`description`, `kind`, `sessions`)
+  on stdin. `check()` scrubs it and decides: a secret, e-mail or IP rejects in any scope; a global
+  lesson with a version, URL, path, host or script name is rejected, one that names the project
+  becomes a project lesson, and its code spans may hold only a tool and flags. `store()` needs
+  every session in the records and in the proposing project, and refuses a repeat (`key`: scope,
+  project and normalized text, checked inside the write transaction). It writes a `draft`.
+>>>>>>> feat/4-brain-propose
 - `lib/paths.mjs`: `brainDir()` (`CLAUDE_BRAIN_DIR`), `projectsDir()` (`CLAUDE_CONFIG_DIR`),
   `isMain()` (real paths, so a symlinked install runs its main).
 - `tests/capture.test.sh`: the hook end to end, then `node --test tests/*.test.mjs`. Node 22.13+
