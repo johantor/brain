@@ -23,6 +23,9 @@ applies here.
   `engineering-principles`, a copy of crew's; and `writing-style`), the PR and issue templates.
   `.claude/skills/` holds thin wrappers for Claude Code (`brain-review` adds the shell steps;
   `steward` says how a session drives a PR).
+- `.claude/crew.md`: the crew configuration, for developing brain with the `crew` plugin.
+- `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, `PRIVACY.md`, `SECURITY.md`: copies of board's, adapted.
+  `CONTRIBUTING.md` only points here.
 
 ## Validating changes
 

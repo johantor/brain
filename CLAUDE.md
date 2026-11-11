@@ -33,6 +33,14 @@ one, run the `brain-review` skill on the diff and fix its Blocking and Warning f
   cases of the mechanism you already patched, stop and ask the operator: redesign, or accept the
   gap and list it in the README's *Known gaps*.
 
+## Developing with crew
+
+The repo carries a crew configuration in [.claude/crew.md](.claude/crew.md), so `/crew:feature`
+and `claude --agent crew:lead` work here: `lead` plans and delegates each step to a worker
+subagent that edits files in this working tree. It is ordinary in-repo development, not remote
+execution. With the crew hooks loaded, reads and writes go through `Read`, `Edit` and `Write`,
+not the shell, and nothing is pushed until the operator runs `/crew:pr`.
+
 ## Map
 
 Paths in *Map* and *Gotchas* are relative to `plugin/`, the directory users install.

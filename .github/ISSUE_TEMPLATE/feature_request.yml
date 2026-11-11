@@ -1,0 +1,24 @@
+name: Feature request
+description: A new signal, a report detail, or a change to how brain records or learns.
+title: "feat: "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What you wanted brain to notice or do, and where it fell short.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposal
+      description: What should change.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Workaround today
+      description: How you get by without it, if at all.

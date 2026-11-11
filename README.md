@@ -98,9 +98,11 @@ Uninstalling leaves `~/.claude/brain`. Delete it to remove the records.
 ## Documentation
 
 - [AGENTS.md](AGENTS.md): contributing, validating and releasing.
+- [CONTRIBUTING.md](CONTRIBUTING.md) and [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md).
 - [SECURITY.md](SECURITY.md): reporting a vulnerability.
 - [board](https://github.com/johantor/board): every Claude Code session on one local board.
 
 ## License
 
-[Apache-2.0](LICENSE). An independent project, not affiliated with or endorsed by Anthropic.
+[Apache-2.0](LICENSE). The plugin collects no data and sends nothing to the maintainers; see
+[PRIVACY.md](PRIVACY.md). An independent project, not affiliated with or endorsed by Anthropic.
