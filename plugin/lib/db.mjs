@@ -20,6 +20,10 @@ CREATE TABLE IF NOT EXISTS events (
 CREATE INDEX IF NOT EXISTS events_sid ON events (sid, kind);
 CREATE TABLE IF NOT EXISTS queue (sid TEXT PRIMARY KEY, reason TEXT NOT NULL, ts INTEGER NOT NULL);
 CREATE TABLE IF NOT EXISTS transcripts (sid TEXT PRIMARY KEY, sig TEXT NOT NULL);
+-- An index of the lesson files, which are the source of truth; \`key\` catches repeats.
+CREATE TABLE IF NOT EXISTS lessons (
+  id INTEGER PRIMARY KEY AUTOINCREMENT, key TEXT NOT NULL UNIQUE, description TEXT NOT NULL,
+  kind TEXT NOT NULL, scope TEXT NOT NULL, project TEXT, status TEXT NOT NULL, created INTEGER NOT NULL);
 -- A denied dialog has no hook of its own: it is a permission request whose call never ran.
 CREATE VIEW IF NOT EXISTS denials AS
   SELECT p.* FROM events p WHERE p.kind = 'permission' AND NOT EXISTS (
