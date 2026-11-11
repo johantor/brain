@@ -8,9 +8,9 @@
 work out what went wrong, and make the next session better, with no `/learn` step. The design is
 [#3](https://github.com/johantor/brain/issues/3).
 
-brain records the signals and answers questions about them. It learns nothing yet: no lesson is
-loaded into a session. Phase 2 ([#4](https://github.com/johantor/brain/issues/4)) adds reflection
-in shadow mode.
+brain records the signals, answers questions about them, and can draft lessons in shadow mode.
+No lesson is loaded into a session yet: that is phase 3
+([#5](https://github.com/johantor/brain/issues/5)).
 
 ```bash
 claude plugin marketplace add johantor/plugins
@@ -52,11 +52,28 @@ should I create?". The `brain` skill queries the records through a read-only con
 answers with counts and dates, then a suggestion. It reads the current project only, unless you
 ask across projects. It suggests; it creates nothing.
 
+## Shadow reflection
+
+```
+/brain:shadow on
+```
+
+With reflection on, brain watches for friction: a failing call, a denied permission, or a prompt
+that pushes back ("no, …", "wrong", "undo"). At the first turn after it that ends clean, the Stop
+hook asks Claude to reflect: the `reflect` skill drafts at most two lessons from your own words and
+hands them to `brain propose`, which scrubs them, checks them and stores them as drafts. Nothing
+loads into a session. Ask "which lessons did brain draft?" to see them.
+
+It costs tokens in the session that reflects: at most 3 reflections per session, and
+`/brain:report` shows the average cost. It starts off for that reason. `/brain:shadow off` stops it.
+
 ## How it works
 
-1. Hooks on 6 events run `hooks/capture.sh`, which hands the payload to Node. Node writes rows to
-   `~/.claude/brain/brain.db`, a SQLite file. Five hooks are async. `SessionEnd` runs in the
-   foreground for up to 5 seconds, so its row lands before Claude Code exits. None fails a
+1. Hooks on 7 events run `hooks/capture.sh`, which hands the payload to Node. Node writes rows to
+   `~/.claude/brain/brain.db`, a SQLite file. Four hooks run in the foreground for up to 5
+   seconds: `SessionEnd`, so its row lands before Claude Code exits, `Stop`, which decides on
+   reflection, and `UserPromptSubmit` and `PostToolUseFailure`, so their rows land before that
+   decision. None fails a
    session: no Node, a bad payload or a locked database all exit 0. Errors go to
    `~/.claude/brain/errors.log`.
 2. At each `SessionStart`, brain reads every transcript under `~/.claude/projects` that changed
@@ -96,8 +113,8 @@ Uninstalling leaves `~/.claude/brain`. Delete it to remove the records.
   top-level domain, or a client name that is not the folder, repo or remote name stays in the text.
 - A path is scrubbed from two segments up: `/client` alone stays, since it looks like a slash
   command. A path with a space keeps the part after the space.
-- A correction in a prompt is stored as a prompt. Telling it apart from a new request needs a
-  model, which is phase 2.
+- A correction is spotted by its first words ("no", "wrong", "actually"). A correction worded
+  otherwise starts no reflection, and "no worries" starts one that drafts nothing.
 - An approved call that is still running, or an identical call that runs once after two requests,
   counts as a denial until it finishes.
 - The transcript format is not documented. A Claude Code update can break the scan; the hooks keep

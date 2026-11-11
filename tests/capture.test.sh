@@ -66,17 +66,33 @@ mode() { stat -c '%a' "$1" 2>/dev/null || stat -f '%Lp' "$1"; }
 if [ "$(mode "$db")" = "600" ]; then _pass; else _fail "brain.db mode is $(mode "$db"), expected 600"; fi
 if [ "$(mode "$CLAUDE_BRAIN_DIR")" = "700" ]; then _pass; else _fail "brain dir mode is $(mode "$CLAUDE_BRAIN_DIR"), expected 700"; fi
 
-# SessionEnd runs in the foreground so it lands before the process exits; the rest are async.
+# Foreground hooks, each with a timeout: SessionEnd lands before the process exits, Stop
+# decides on reflection, and the two friction events land before their turn's Stop does.
 wiring="$(dirname "${BASH_SOURCE[0]}")/../plugin/hooks/hooks.json"
-if jq -e '.hooks.SessionEnd[0].hooks[0] | (.async != true) and (.timeout | type == "number")' "$wiring" >/dev/null; then
+sync='["PostToolUseFailure","SessionEnd","Stop","UserPromptSubmit"]'
+if jq -e --argjson s "$sync" '[.hooks | to_entries[] | select(.value[0].hooks[0] | (.async != true) and (.timeout | type == "number")) | .key] | sort == $s' "$wiring" >/dev/null; then
   _pass
 else
-  _fail "SessionEnd must run in the foreground with a timeout"
+  _fail "exactly $sync must run in the foreground with a timeout"
 fi
-if jq -e '[.hooks | to_entries[] | select(.key != "SessionEnd") | .value[0].hooks[0].async] | all' "$wiring" >/dev/null; then
+if jq -e --argjson s "$sync" '[.hooks | to_entries[] | select(.key as $k | $s | index($k) | not) | .value[0].hooks[0].async] | all' "$wiring" >/dev/null; then
   _pass
 else
   _fail "every other brain hook must be async"
+fi
+
+# Stop prints a reflection request only when reflection is on and a turn ended clean after friction.
+stop='{"session_id":"r1","hook_event_name":"Stop","cwd":"/w/acme"}'
+"$BASH" "$HOOKS_DIR/$HOOK" <<<'{"session_id":"r1","hook_event_name":"UserPromptSubmit","cwd":"/w/acme","prompt":"no, use pnpm"}'
+out="$("$BASH" "$HOOKS_DIR/$HOOK" <<<"$stop")"
+if [ -z "$out" ]; then _pass; else _fail "Stop with reflection off printed: $out"; fi
+node "$(dirname "${BASH_SOURCE[0]}")/../plugin/lib/config.mjs" reflect on >/dev/null
+"$BASH" "$HOOKS_DIR/$HOOK" <<<'{"session_id":"r2","hook_event_name":"UserPromptSubmit","cwd":"/w/acme","prompt":"no, use pnpm"}'
+out="$("$BASH" "$HOOKS_DIR/$HOOK" <<<'{"session_id":"r2","hook_event_name":"Stop","cwd":"/w/acme"}')"
+if jq -e '.hookSpecificOutput | .hookEventName == "Stop" and (.additionalContext | test("brain:reflect"))' >/dev/null 2>&1 <<<"$out"; then
+  _pass
+else
+  _fail "Stop with reflection on: expected additionalContext, got: ${out:-nothing}"
 fi
 
 # The report runs on the same database.

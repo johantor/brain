@@ -44,6 +44,9 @@ export function report(db, days, now = Date.now()) {
       out.push(`  ${name(r.cwd)}: ${what} x${r.n}`);
     }
   }
+  const r = db.prepare("SELECT count(*) AS n, avg(code) AS avg FROM events WHERE kind = 'reflect' AND ts >= ?").get(since);
+  const drafts = db.prepare("SELECT count(*) AS n FROM lessons WHERE status = 'draft'").get().n;
+  out.push('', `Reflections: ${r.n}${r.avg === null ? '' : `, about ${human(Math.round(r.avg))} tokens each`}; draft lessons: ${drafts}`);
   const queue = db.prepare('SELECT reason, count(*) AS n FROM queue GROUP BY reason ORDER BY reason').all();
   out.push('', `Queue: ${queue.length ? queue.map((q) => `${q.n} ${q.reason}`).join(', ') : 'empty'}`);
   out.push('', 'Interrupts and tokens are whole-session totals, from the transcripts.');

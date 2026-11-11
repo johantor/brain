@@ -5,6 +5,19 @@ All notable changes to the `brain` plugin are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] - 2026-11-11
+
+### Added
+
+- Shadow reflection, off by default (`/brain:shadow on`): at the first clean stop after friction,
+  the `reflect` skill drafts lessons through `brain propose`; nothing loads (#10).
+- `/brain:report` shows reflections, their token cost, and the number of draft lessons (#10).
+
+### Changed
+
+- `UserPromptSubmit`, `PostToolUseFailure` and `Stop` hooks run in the foreground, so the Stop
+  decision sees its own turn (#10).
+
 ## [0.3.0] - 2026-11-11
 
 ### Added
