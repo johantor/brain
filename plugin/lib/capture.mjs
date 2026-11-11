@@ -18,10 +18,11 @@ export function callKey(name, input) {
 }
 
 // The program a failed Bash call ran, without its arguments: `npm`, not the command line.
-export function program(p) {
+// Scrubbed like a prompt: the first word can be a token or a project's own script.
+export function program(p, names = []) {
   if (p.tool_name !== 'Bash' || typeof p.tool_input?.command !== 'string') return null;
   const word = p.tool_input.command.trim().split(/\s+/).find((w) => !w.includes('='));
-  const name = word && path.basename(word);
+  const name = word && scrub(path.basename(word), names);
   return name && /^[\w.+-]{1,40}$/.test(name) ? name : null;
 }
 
@@ -57,7 +58,7 @@ export function record(db, p, now = Date.now()) {
       if (text) event('prompt', { text: text.slice(0, PROMPT_MAX) });
     },
     PostToolUse: () => event('tool_ok', call()),
-    PostToolUseFailure: () => event('tool_fail', { ...call(), code: exitCode(p.error), text: program(p) }),
+    PostToolUseFailure: () => event('tool_fail', { ...call(), code: exitCode(p.error), text: program(p, projectNames(p.cwd)) }),
     PermissionRequest: () => event('permission', call()),
     SessionEnd: () => {
       db.prepare('UPDATE sessions SET ended = ?, end_reason = ? WHERE sid = ?').run(now, p.reason ?? null, sid);
@@ -70,6 +71,8 @@ export function record(db, p, now = Date.now()) {
 
   tx(db, () => {
     db.prepare(UPSERT_SESSION).run(sid, typeof p.cwd === 'string' ? p.cwd : null, now, now);
+    // New activity means a session queued as quiet is not over; the next scan requeues it.
+    db.prepare("DELETE FROM queue WHERE sid = ? AND reason = 'no-end'").run(sid);
     write();
   });
   return true;
@@ -87,7 +90,6 @@ function logError(err) {
 }
 
 export async function main() {
-  process.umask(0o077);
   let payload;
   try {
     payload = JSON.parse(fs.readFileSync(0, 'utf8'));

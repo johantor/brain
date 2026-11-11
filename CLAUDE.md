@@ -52,14 +52,17 @@ Paths in *Map* and *Gotchas* are relative to `plugin/`, the directory users inst
 - `lib/capture.mjs`: `record(db, payload)` writes one hook payload in one transaction: it upserts
   the session (`cwd` and `started` first seen, `last` the latest) and adds one `events` row.
   Kinds: `prompt` (scrubbed text, at most 2000 characters), `tool_ok`, `tool_fail` (`code` from
-  `Exit code N`, `text` the Bash program name only), `permission`. `call` is board's hash of tool
+  `Exit code N`, `text` the Bash program name only, scrubbed), `permission`. Any new activity
+  drops the session's `no-end` queue entry. `call` is board's hash of tool
   name and input, since PermissionRequest has no `tool_use_id`. `SessionEnd` sets `ended` and
   queues the session as `end`. `SessionStart` also runs `scan()`. Errors go to `errors.log`,
-  never the payload. `umask 077`.
+  never the payload.
 - `lib/scrub.mjs`: `scrub(text, names)`, ordered regex rules, then the project's names
   (`projectNames(cwd)`: the folder, the repo root, each remote's owner and repo, read from
-  `.git/config` as a file through `readSmall`, no git process).
-- `lib/db.mjs`: `openDb()` (WAL, `busy_timeout` 5 s, schema by `CREATE ... IF NOT EXISTS`),
+  `.git/config` as a file through `readSmall`, no git process; a worktree's `.git` file is
+  followed through `commondir` to the shared config). Paths need two segments.
+- `lib/db.mjs`: `openDb()` (`umask 077`, chmods an existing directory to 700 and database to
+  600, WAL, `busy_timeout` 5 s, schema by `CREATE ... IF NOT EXISTS`),
   `tx()`, `prune()`. Tables: `sessions` (sid, cwd, started, last, ended, end_reason, model,
   version, tokens_in, tokens_cached, tokens_out, interrupts), `events` (sid, ts, kind, tool, call,
   code, text), `queue` (sid, reason `end`|`no-end`, ts), `transcripts` (sid, sig: mtime and size
@@ -72,7 +75,8 @@ Paths in *Map* and *Gotchas* are relative to `plugin/`, the directory users inst
   `cwd` and `started`. Then queues sessions with no `ended` and silent for 12 hours (`no-end`),
   and prunes.
 - `lib/report.mjs` and `commands/report.md`: `/brain:report [--days N]`, one row per project
-  (by `cwd`), repeated failures by `call`, the queue.
+  (by `cwd`), event counts and repeated failures within the window, interrupts and tokens as
+  whole-session totals, the queue.
 - `lib/paths.mjs`: `brainDir()` (`CLAUDE_BRAIN_DIR`), `projectsDir()` (`CLAUDE_CONFIG_DIR`),
   `isMain()` (real paths, so a symlinked install runs its main).
 - `tests/capture.test.sh`: the hook end to end, then `node --test tests/*.test.mjs`. Node 22.13+

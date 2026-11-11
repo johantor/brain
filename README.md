@@ -86,6 +86,8 @@ Uninstalling leaves `~/.claude/brain`. Delete it to remove the records.
 
 - The scrubber works from pattern lists. A secret in an unknown format, a host under an unlisted
   top-level domain, or a client name that is not the folder, repo or remote name stays in the text.
+- A path is scrubbed from two segments up: `/client` alone stays, since it looks like a slash
+  command. A path with a space keeps the part after the space.
 - A correction in a prompt is stored as a prompt. Telling it apart from a new request needs a
   model, which is phase 2.
 - An approved call that is still running, or an identical call that runs once after two requests,

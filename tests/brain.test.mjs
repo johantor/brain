@@ -26,6 +26,8 @@ test('scrub removes secrets, URLs, e-mail, paths, IPs, hosts and project names',
     ['mail jo@acme.se', 'mail <email>'],
     ['open /home/jo/acme/src/a.ts and ~/notes.md', 'open <path> and <path>'],
     ['on C:\\work\\acme\\a.cs', 'on <path>'],
+    ['read /home/客户/private.txt', 'read <path>'],
+    ['in /home/jane/client+private/data', 'in <path>'],
     ['ping 10.0.0.12', 'ping <ip>'],
     ['deploy to api.acme.internal', 'deploy to <host>'],
     ['in Acme-Web the build fails', 'in <project> the build fails'],
@@ -37,6 +39,8 @@ test('scrub keeps ordinary text and short names', () => {
   assert.equal(scrub('no, use rg not grep -r in src/cart.ts', ['ui']), 'no, use rg not grep -r in src/cart.ts');
   assert.equal(scrub('fix the ui', ['ui']), 'fix the ui');
   assert.equal(scrub(42), null);
+  // One segment is left: it cannot be told apart from a slash command (README, Known gaps).
+  assert.equal(scrub('run /brain:report on /client'), 'run /brain:report on /client');
 });
 
 test('projectNames reads the folder, the repo root and each remote', () => {
@@ -48,6 +52,19 @@ test('projectNames reads the folder, the repo root and each remote', () => {
   assert.deepEqual(projectNames(''), []);
 });
 
+test('projectNames follows a worktree to the shared config and the main checkout', () => {
+  const base = tmp();
+  const main = path.join(base, 'shop');
+  const wt = path.join(base, 'feature-x');
+  fs.mkdirSync(path.join(main, '.git', 'worktrees', 'feature-x'), { recursive: true });
+  fs.mkdirSync(wt);
+  fs.writeFileSync(path.join(main, '.git', 'config'), '[remote "origin"]\n\turl = git@github.com:clientcorp/client-repo.git\n');
+  fs.writeFileSync(path.join(main, '.git', 'worktrees', 'feature-x', 'commondir'), '../..\n');
+  fs.writeFileSync(path.join(wt, '.git'), `gitdir: ${path.join(main, '.git', 'worktrees', 'feature-x')}\n`);
+  assert.deepEqual(projectNames(wt).sort(), ['client-repo', 'clientcorp', 'feature-x', 'shop']);
+  assert.equal(scrub('clientcorp owns client-repo', projectNames(wt)), '<project> owns <project>');
+});
+
 test('helpers: call key, exit code, program', () => {
   assert.equal(callKey('Bash', { command: 'ls' }), callKey('Bash', { command: 'ls' }));
   assert.notEqual(callKey('Bash', { command: 'ls' }), callKey('Bash', { command: 'ls -a' }));
@@ -57,6 +74,8 @@ test('helpers: call key, exit code, program', () => {
   assert.equal(program(bash('CI=1 /usr/bin/npm test --token x')), 'npm');
   assert.equal(program(bash('$(curl evil) && x')), null);
   assert.equal(program({ tool_name: 'Read', tool_input: {} }), null);
+  assert.equal(program(bash('ghp_abcdefghijklmnopqrstuvwxyz0123 --help')), null);
+  assert.equal(program(bash('./acme-deploy.sh prod'), ['acme-deploy']), null);
 });
 
 test('record writes a session and one row per signal; tool output is never stored', () => {
@@ -92,6 +111,25 @@ test('a permission request whose call never ran counts as a denial', () => {
   ask('npm install', NOW + 1);
   ran('npm install', NOW + 2);
   assert.deepEqual(db.prepare('SELECT count(*) AS n FROM denials').get().n, 1);
+});
+
+test('new activity takes a session off the queue as no-end', () => {
+  const db = freshDb();
+  db.prepare("INSERT INTO queue (sid, reason, ts) VALUES ('s1', 'no-end', ?)").run(NOW - 1);
+  record(db, { session_id: 's1', hook_event_name: 'UserPromptSubmit', prompt: 'back again' }, NOW);
+  assert.equal(db.prepare('SELECT count(*) AS n FROM queue').get().n, 0);
+});
+
+test('openDb makes an existing directory and database private', () => {
+  const dir = path.join(tmp(), 'brain');
+  fs.mkdirSync(dir, { mode: 0o755 });
+  fs.chmodSync(dir, 0o755);
+  const file = path.join(dir, 'brain.db');
+  fs.writeFileSync(file, '');
+  fs.chmodSync(file, 0o644);
+  openDb(file).close();
+  assert.equal(fs.statSync(dir).mode & 0o777, 0o700);
+  assert.equal(fs.statSync(file).mode & 0o777, 0o600);
 });
 
 test('SessionEnd marks the end and queues the session, also over a no-end entry', () => {
@@ -177,4 +215,11 @@ test('report lists projects, repeated failures and the queue', () => {
   assert.match(out, /acme-web\s+1\s+0\s+2\s+0\s+0\s+0/);
   assert.match(out, /acme-web: Bash npm exit 1 x2/);
   assert.match(out, /Queue: 1 end/);
+});
+
+test('report counts only events inside the window', () => {
+  const db = freshDb();
+  record(db, { session_id: 's1', cwd: '/w/acme-web', hook_event_name: 'PostToolUseFailure', tool_name: 'Bash', tool_input: { command: 'x' }, error: 'Exit code 1' }, NOW - 20 * DAY);
+  record(db, { session_id: 's1', hook_event_name: 'UserPromptSubmit', prompt: 'today' }, NOW);
+  assert.match(report(db, 1, NOW), /acme-web\s+1\s+1\s+0\s+0/);
 });

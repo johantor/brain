@@ -16,7 +16,8 @@ const RULES = [
   [/\b(password|passwd|secret|token|api[_-]?key|access[_-]?key)(\s*[:=]\s*)\S+/gi, '$1$2<secret>'],
   [/\b[a-z][a-z0-9+.-]*:\/\/\S+/gi, '<url>'],
   [/\b[\w.+-]+@[\w-]+(?:\.[\w-]+)+/g, '<email>'],
-  [/~(?:\/[\w.@-]+)+\/?|(?<![\w.~])(?:\/[\w.@-]+){2,}\/?/g, '<path>'],
+  // Two segments or more: one (`/client`) cannot be told apart from a slash command.
+  [/~(?:\/[\p{L}\p{N}_.@+-]+)+\/?|(?<![\p{L}\p{N}_.~])(?:\/[\p{L}\p{N}_.@+-]+){2,}\/?/gu, '<path>'],
   [/\b[A-Za-z]:\\[^\s"'`]+/g, '<path>'],
   [/\b(?:\d{1,3}\.){3}\d{1,3}\b/g, '<ip>'],
   [/\b(?:[a-z0-9-]+\.)+(?:com|net|org|io|dev|app|ai|co|cloud|se|uk|de|internal|local|corp|lan)\b/gi, '<host>'],
@@ -51,6 +52,31 @@ function readSmall(file, cap = 8192) {
   }
 }
 
+// The owner and repo of each remote. A worktree's `.git` is a file naming its git dir,
+// whose `commondir` leads to the shared config and the main checkout.
+function remoteNames(dotgit) {
+  const names = [];
+  let gitDir = dotgit;
+  if (fs.lstatSync(dotgit).isFile()) {
+    const m = /^gitdir:\s*(.+)$/m.exec(readSmall(dotgit));
+    if (!m) return names;
+    gitDir = path.resolve(path.dirname(dotgit), m[1].trim());
+    let common = gitDir;
+    try {
+      common = path.resolve(gitDir, readSmall(path.join(gitDir, 'commondir')).trim());
+    } catch {
+      // A submodule's git dir has no commondir: its config is its own.
+    }
+    if (common !== gitDir) names.push(path.basename(path.dirname(common)));
+    gitDir = common;
+  }
+  for (const m of readSmall(path.join(gitDir, 'config')).matchAll(/^\s*url\s*=\s*(.+)$/gm)) {
+    const r = /[:/]([^/:\s]+)\/([^/\s]+?)(?:\.git)?\/?$/.exec(m[1].trim());
+    if (r) names.push(r[1], r[2]);
+  }
+  return names;
+}
+
 // The names that identify a project: its folder, its repo root, and the owner and
 // repo of each remote. Read as files, with no git process per event.
 export function projectNames(cwd) {
@@ -62,13 +88,9 @@ export function projectNames(cwd) {
     if (fs.existsSync(dotgit)) {
       names.add(path.basename(dir));
       try {
-        const config = readSmall(path.join(dotgit, 'config'));
-        for (const m of config.matchAll(/^\s*url\s*=\s*(.+)$/gm)) {
-          const r = /[:/]([^/:\s]+)\/([^/\s]+?)(?:\.git)?\/?$/.exec(m[1].trim());
-          if (r) names.add(r[1]).add(r[2]);
-        }
+        for (const name of remoteNames(dotgit)) names.add(name);
       } catch {
-        // A worktree's `.git` is a file, and a foreign one is skipped: folder names only.
+        // A foreign or unreadable git dir is skipped: folder names only.
       }
       break;
     }

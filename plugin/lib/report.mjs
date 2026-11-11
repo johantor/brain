@@ -9,12 +9,12 @@ const human = (n) => (n >= 1e6 ? `${(n / 1e6).toFixed(1)}M` : n >= 1e3 ? `${Math
 
 const PER_PROJECT = `
   SELECT s.cwd, count(*) AS sessions,
-    sum((SELECT count(*) FROM events e WHERE e.sid = s.sid AND e.kind = 'prompt')) AS prompts,
-    sum((SELECT count(*) FROM events e WHERE e.sid = s.sid AND e.kind = 'tool_fail')) AS failures,
-    sum((SELECT count(*) FROM denials d WHERE d.sid = s.sid)) AS denials,
+    sum((SELECT count(*) FROM events e WHERE e.sid = s.sid AND e.kind = 'prompt' AND e.ts >= $since)) AS prompts,
+    sum((SELECT count(*) FROM events e WHERE e.sid = s.sid AND e.kind = 'tool_fail' AND e.ts >= $since)) AS failures,
+    sum((SELECT count(*) FROM denials d WHERE d.sid = s.sid AND d.ts >= $since)) AS denials,
     sum(coalesce(s.interrupts, 0)) AS interrupts,
     sum(coalesce(s.tokens_out, 0)) AS tokens_out
-  FROM sessions s WHERE s.last >= ? GROUP BY s.cwd ORDER BY sessions DESC`;
+  FROM sessions s WHERE s.last >= $since GROUP BY s.cwd ORDER BY sessions DESC`;
 
 // The same call failing again in one session: the "command that keeps failing" signal.
 const REPEATED = `
@@ -26,7 +26,7 @@ const REPEATED = `
 export function report(db, days, now = Date.now()) {
   const since = now - days * DAY;
   const name = (cwd) => (cwd ? path.basename(cwd) : '(unknown)');
-  const rows = db.prepare(PER_PROJECT).all(since);
+  const rows = db.prepare(PER_PROJECT).all({ since });
   const out = [`brain: last ${days} days, ${rows.reduce((n, r) => n + r.sessions, 0)} sessions in ${rows.length} projects`, ''];
   if (rows.length) {
     const table = [['project', 'sessions', 'prompts', 'failures', 'denials', 'interrupts', 'tokens out']];
@@ -46,6 +46,7 @@ export function report(db, days, now = Date.now()) {
   }
   const queue = db.prepare('SELECT reason, count(*) AS n FROM queue GROUP BY reason ORDER BY reason').all();
   out.push('', `Queue: ${queue.length ? queue.map((q) => `${q.n} ${q.reason}`).join(', ') : 'empty'}`);
+  out.push('', 'Interrupts and tokens are whole-session totals, from the transcripts.');
   return out.join('\n');
 }
 

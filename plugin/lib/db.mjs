@@ -31,8 +31,13 @@ export function dbFile() {
   return path.join(brainDir(), 'brain.db');
 }
 
+// The records hold prompts: private to the user, also when the directory or the file
+// already existed with wider modes. The umask covers the -wal and -shm files SQLite adds.
 export function openDb(file = dbFile()) {
+  process.umask(0o077);
   fs.mkdirSync(path.dirname(file), { recursive: true, mode: 0o700 });
+  fs.chmodSync(path.dirname(file), 0o700);
+  if (fs.existsSync(file)) fs.chmodSync(file, 0o600);
   const db = new DatabaseSync(file);
   db.exec('PRAGMA busy_timeout = 5000; PRAGMA journal_mode = WAL;');
   db.exec(SCHEMA);
