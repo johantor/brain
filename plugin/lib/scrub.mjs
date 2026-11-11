@@ -1,6 +1,6 @@
 // Removes what must never reach brain.db: secrets, URLs, e-mail addresses, absolute
 // paths, IP addresses, host names and the project's own names. Runs at capture, so
-// nothing raw is stored (#5, "Data hygiene"). Pattern lists have gaps: README, Known gaps.
+// nothing raw is stored (#3, "Data hygiene"). Pattern lists have gaps: README, Known gaps.
 import fs from 'node:fs';
 import path from 'node:path';
 

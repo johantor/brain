@@ -2,7 +2,7 @@
 
 This repository is the `brain` Claude Code plugin: the plugin lives in `plugin/`. The `johantor`
 marketplace lives in [johantor/plugins](https://github.com/johantor/plugins), and the design in
-[johantor/plugins#5](https://github.com/johantor/plugins/issues/5).
+[#3](https://github.com/johantor/brain/issues/3).
 
 **Start with [AGENTS.md](AGENTS.md)**: the contributor guide (layout, validating, releasing,
 conventions). It is the single source of truth for working in this repo. This file holds how
