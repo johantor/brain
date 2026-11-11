@@ -87,6 +87,11 @@ You stay in charge of every lesson:
 | Keep a lesson, loaded first | `/brain:pin L12`, or edit its line in `learned.md` to your wording |
 | Reverse brain's latest change | `/brain:undo` |
 
+Each lesson you have not pinned sits out about 30% of the sessions it would load in. brain
+compares how often things go wrong with and without it: from 10 sessions on each side, a lesson
+that cuts failures, denials and corrections by a fifth is marked confirmed. Ask "which lessons
+help?" to see the scores.
+
 A session starts with one line that lists what changed since the last one. Every change is also
 in `~/.claude/brain/changes.log`.
 
@@ -143,6 +148,8 @@ Uninstalling leaves `~/.claude/brain`. Delete it to remove the records.
 - `brain propose` cannot prove that a lesson's words came from you and not from a page Claude
   read. It blocks the forms an injected rule takes (scripts, URLs, paths, commands with
   arguments), stores no other text from the session, and keeps every lesson a draft until phase 3.
+- Holdout compares all friction in a session, not the friction a lesson is about, so a lesson
+  that helps rarely needs many sessions before its score moves.
 - The transcript format is not documented. A Claude Code update can break the scan; the hooks keep
   working.
 - Node prints that `node:sqlite` is experimental. The hook hides the warning; the API could

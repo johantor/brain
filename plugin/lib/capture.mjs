@@ -9,6 +9,7 @@ import { readConfig } from './config.mjs';
 import { brainDir, isMain } from './paths.mjs';
 import { syncLearned, writeLearned } from './manage.mjs';
 import { decide } from './reflect.mjs';
+import { scoreAll } from './score.mjs';
 import { scan } from './scan.mjs';
 import { projectNames, scrub } from './scrub.mjs';
 
@@ -106,12 +107,16 @@ export async function main() {
     record(db, payload);
     if (payload?.hook_event_name === 'SessionStart') {
       // The user's edits to learned.md first, so the next load sees them.
-      if (readConfig().learn) {
+      const learn = readConfig().learn;
+      if (learn && typeof payload.session_id === 'string') {
+        // Marks a session that loaded lessons, so holdout scoring counts only those.
+        db.prepare("INSERT INTO events (sid, ts, kind) VALUES (?, ?, 'loaded')").run(payload.session_id, Date.now());
         tx(db, () => syncLearned(db));
         writeLearned(db);
       }
       // The scan also backfills every transcript on the first run after install.
       await scan(db);
+      if (learn) scoreAll(db);
     }
     if (payload?.hook_event_name === 'Stop' && typeof payload.session_id === 'string') {
       const enabled = readConfig().reflect;

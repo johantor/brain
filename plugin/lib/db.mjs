@@ -24,6 +24,10 @@ CREATE TABLE IF NOT EXISTS transcripts (sid TEXT PRIMARY KEY, sig TEXT NOT NULL)
 CREATE TABLE IF NOT EXISTS lessons (
   id INTEGER PRIMARY KEY AUTOINCREMENT, key TEXT NOT NULL UNIQUE, description TEXT NOT NULL,
   kind TEXT NOT NULL, scope TEXT NOT NULL, project TEXT, status TEXT NOT NULL, created INTEGER NOT NULL);
+-- Holdout results per lesson: friction per prompt with and without it.
+CREATE TABLE IF NOT EXISTS scores (
+  lesson INTEGER PRIMARY KEY, loaded_n INTEGER, held_n INTEGER, loaded_rate REAL, held_rate REAL,
+  verdict TEXT, ts INTEGER);
 -- Every change to a lesson, with what it replaced, so /brain:undo can reverse the latest.
 CREATE TABLE IF NOT EXISTS changes (
   id INTEGER PRIMARY KEY, ts INTEGER NOT NULL, lesson INTEGER NOT NULL, action TEXT NOT NULL,
