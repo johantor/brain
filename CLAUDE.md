@@ -94,10 +94,10 @@ Paths in *Map* and *Gotchas* are relative to `plugin/`, the directory users inst
 - `lib/manage.mjs` and `commands/forget.md`, `pin.md`, `undo.md`: forget sets `deprecated`
   (`retired: "vetoed"` in the file; the key still blocks re-learning), pin sets `stable` with
   `verified: human:local`, undo restores the `before` of the latest `changes` row not undone (a
-  proposal undoes to a veto) and marks its own row undone. `writeLearned()` writes `learned.md`
-  (global lessons) and `.learned.json` (what it wrote); `syncLearned()` turns a deleted line into
-  a forget and an edited one into a pin with the new, scrubbed wording. With `learn` on, the async
-  `SessionStart` capture runs both before its scan.
+  proposal undoes to a veto) and marks its own row undone. `writeLearned()` writes `learned.md`,
+  a read-only view of the global lessons; with `learn` on, the async `SessionStart` capture runs
+  it before its scan. Hand edits are overwritten: they would race between sessions and skip the
+  checks `propose.mjs` makes (#14).
 - `lib/capture.mjs`: `record(db, payload)` writes one hook payload in one transaction: it upserts
   the session (`cwd` and `started` first seen, `last` the latest) and adds one `events` row.
   Kinds: `prompt` (scrubbed text, at most 2000 characters), `tool_ok`, `tool_fail` (`code` from
