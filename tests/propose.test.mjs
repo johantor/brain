@@ -125,3 +125,11 @@ test('main reports stored and rejected candidates', (t) => {
   assert.match(logged[0], /^stored L1 \(draft, global method-error\)/);
   assert.match(logged[1], /^rejected: the input is not JSON/);
 });
+
+test('two non-Latin lessons are not repeats of each other', (t) => {
+  t.after(() => delete process.env.CLAUDE_BRAIN_DIR);
+  const { db } = seededDb();
+  const ja = (description) => check({ kind: 'preference', sessions: ['s1'], description }, { cwd: '/w/acme' }).lesson;
+  assert.equal(store(db, ja('回答は必ず日本語で簡潔にまとめてください、長い説明は不要です'), NOW).id, 1);
+  assert.equal(store(db, ja('変更前には必ず関連するテストを実行してください、例外はありません'), NOW).id, 2);
+});

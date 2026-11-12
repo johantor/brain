@@ -34,3 +34,12 @@ test('an entry in two projects is proposed once; one project, or one already in 
 test('no projects folder is no proposals', () => {
   assert.deepEqual(proposals('/nonexistent/projects'), []);
 });
+
+test('distinct non-Latin entries keep distinct keys', () => {
+  const dir = config({
+    a: ['- 回答は必ず日本語で簡潔にまとめてください'],
+    b: ['- 変更前には必ず関連するテストを実行してください'],
+  }, '- Читайте журнал ошибок перед тем, как гадать о причине\n');
+  assert.deepEqual(proposals(dir), []);
+  assert.notEqual(entryOf('- 回答は必ず日本語で簡潔にまとめてください').key, '');
+});

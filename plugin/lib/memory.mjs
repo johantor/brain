@@ -14,7 +14,8 @@ export function entryOf(line) {
     .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')
     .trim();
   if (text.length < 15 || text.startsWith('#')) return null;
-  return { text, key: text.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim() };
+  // Letters and digits of any script: an ASCII-only key would make every non-Latin entry ''.
+  return { text, key: text.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim() };
 }
 
 function read(file) {
