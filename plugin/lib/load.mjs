@@ -30,7 +30,8 @@ export function select(db, root, sid = '') {
     ORDER BY status = 'stable' DESC, scope = 'project' DESC, created DESC, id DESC`).all(root)
     .filter((r) => !sid || !held(sid, r));
   const chosen = [];
-  let used = HEADER.length;
+  // Room for the "more did not fit" line, so the whole context stays within BUDGET.
+  let used = HEADER.length + more(999999).length;
   for (const r of rows) {
     const cost = line(r).length + 1;
     if (used + cost > BUDGET) break;
@@ -40,10 +41,11 @@ export function select(db, root, sid = '') {
   return { chosen, left: rows.length - chosen.length };
 }
 
+const more = (left) => (left ? `\n(${left} more lessons did not fit the budget.)` : '');
+
 export function context(chosen, left) {
   if (!chosen.length) return null;
-  const more = left ? `\n(${left} more lessons did not fit the budget.)` : '';
-  return `${HEADER}\n${chosen.map(line).join('\n')}${more}`;
+  return `${HEADER}\n${chosen.map(line).join('\n')}${more(left)}`;
 }
 
 // One line for the user, not for Claude: what changed since the last notice.
