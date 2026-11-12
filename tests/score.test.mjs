@@ -196,3 +196,17 @@ test('undoing a confirmation keeps the draft and drops the verification', (t) =>
   assert.equal(db.prepare('SELECT status FROM lessons WHERE id = 1').get().status, 'draft');
   assert.equal(parse(fs.readFileSync(lessonFile(1), 'utf8')).front.verified, undefined);
 });
+
+test('a resumed session counts once in a probe', (t) => {
+  const { db, lesson } = setup(t, { n: 0, model: 'opus-5' });
+  probeSessions(db, 1, 'opus-6', 0);
+  for (let i = 0; i < 4; i++) db.prepare("INSERT INTO events (sid, ts, kind, text) VALUES ('p0', ?, 'loaded', ',,')").run(NOW + 6e5 + i);
+  assert.equal(scoreLesson(db, lesson, NOW + 1e6).probe.rates.length, 1);
+});
+
+test('a session that was shown the lesson is no probe evidence', (t) => {
+  const { db, lesson } = setup(t, { n: 0, model: 'opus-5' });
+  probeSessions(db, PROBE_SESSIONS, 'opus-6', 0);
+  db.prepare("UPDATE events SET text = ',1,' WHERE kind = 'loaded' AND sid LIKE 'p%'").run();
+  assert.equal(scoreLesson(db, lesson, NOW + 1e6).probe.rates.length, 0);
+});

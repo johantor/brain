@@ -40,11 +40,13 @@ const mean = (xs) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : nu
 // Only finished sessions with a prompt count: one that just started has no friction yet,
 // and would pull every rate toward zero (scoring runs at SessionStart).
 export function scoreLesson(db, lesson, now = Date.now()) {
-  const sessions = db.prepare(`SELECT s.sid, s.cwd, s.model, s.started, e.text AS ids FROM sessions s
+  // One row per session: a resumed session has several `loaded` rows, and every list it
+  // was given counts.
+  const sessions = db.prepare(`SELECT s.sid, s.cwd, s.model, s.started, group_concat(e.text, '') AS ids FROM sessions s
     JOIN events e ON e.sid = s.sid AND e.kind = 'loaded'
     WHERE s.started >= ? AND (s.ended IS NOT NULL OR s.last < ?)
       AND EXISTS (SELECT 1 FROM events p WHERE p.sid = s.sid AND p.kind = 'prompt')
-    ORDER BY s.started`).all(lesson.created, now - IDLE_MS);
+    GROUP BY s.sid ORDER BY s.started`).all(lesson.created, now - IDLE_MS);
   // After a probe kept the lesson under a new model, only later sessions count: the probe
   // sessions loaded nothing, and earlier ones ran another model.
   const keptAt = db.prepare("SELECT coalesce(max(ts), 0) AS t FROM changes WHERE lesson = ? AND action = 'kept' AND undone = 0").get(lesson.id).t;
@@ -54,13 +56,16 @@ export function scoreLesson(db, lesson, now = Date.now()) {
   for (const s of sessions) {
     if (s.started < keptAt) continue;
     if (lesson.scope === 'project' && (!s.cwd || projectRoot(s.cwd) !== lesson.project)) continue;
+    const shown = s.ids?.includes(`,${lesson.id},`);
+    // A probe session must not have seen the lesson: one that loaded it under the old
+    // model and then switched is no evidence either way.
     if (probing(lesson, s.model)) {
-      probe.push({ rate: rate(db, s.sid), model: s.model });
+      if (!shown) probe.push({ rate: rate(db, s.sid), model: s.model });
       continue;
     }
     // Loaded: the session's list holds it. Held: the hash held it out. A lesson that did
     // not fit the budget is neither, and that session does not count.
-    if (s.ids?.includes(`,${lesson.id},`)) withIt.push(rate(db, s.sid));
+    if (shown) withIt.push(rate(db, s.sid));
     else if (held(s.sid, lesson, s.model)) without.push(rate(db, s.sid));
   }
   const loaded = mean(withIt);
@@ -108,9 +113,13 @@ function retire(db, lesson, s, now) {
 // machine-confirmed (OKF `verified` by `process:holdout`) once, and retires stale ones.
 export function scoreAll(db, now = Date.now()) {
   const lessons = db.prepare("SELECT id, kind, scope, project, status, created, model FROM lessons WHERE status != 'deprecated'").all();
-  for (const l of lessons) {
-    const s = scoreLesson(db, l, now);
+  for (const { id } of lessons) {
+    // The score is read outside the lock; the row it acts on is read again inside, so a
+    // lesson pinned meanwhile is never retired.
+    const s = scoreLesson(db, lessons.find((x) => x.id === id), now);
     tx(db, () => {
+      const l = db.prepare('SELECT id, kind, scope, project, status, created, model FROM lessons WHERE id = ?').get(id);
+      if (!l || l.status === 'deprecated') return;
       db.prepare(`INSERT INTO scores (lesson, loaded_n, held_n, loaded_rate, held_rate, verdict, ts) VALUES (?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(lesson) DO UPDATE SET loaded_n = excluded.loaded_n, held_n = excluded.held_n, loaded_rate = excluded.loaded_rate,
           held_rate = excluded.held_rate, verdict = excluded.verdict, ts = excluded.ts`)

@@ -159,7 +159,9 @@ Uninstalling leaves `~/.claude/brain`. Delete it to remove the records.
   read. It blocks the forms an injected rule takes (scripts, URLs, paths, commands with
   arguments), stores no other text from the session, and keeps every lesson a draft until phase 3.
 - Holdout compares all friction in a session, not the friction a lesson is about, so a lesson
-  that helps rarely needs many sessions before its score moves.
+  that helps rarely needs many sessions before its score moves. Scoring and probes are a rough
+  measure by design: further edge cases in them are accepted here rather than patched one by one
+  (#16).
 - The transcript format is not documented. A Claude Code update can break the scan; the hooks keep
   working.
 - Node prints that `node:sqlite` is experimental. The hook hides the warning; the API could
