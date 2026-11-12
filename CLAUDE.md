@@ -62,19 +62,22 @@ Paths in *Map* and *Gotchas* are relative to `plugin/`, the directory users inst
   async `SessionStart` capture adds a `loaded` event row whose `text` lists the ids
   `load.select()` chose (`,1,4,`), and after the scan `scoreAll()` compares friction per prompt
   (`reflect.friction`) between sessions that loaded each lesson and sessions that held it out; a
-  session where it did not fit the budget counts for neither. Only finished sessions (ended, or
-  quiet for 12 hours) with a prompt, started after the lesson, in its scope. `MIN_SESSIONS` (10)
+  session where it did not fit the budget counts for neither. One row per session (a resumed
+  session's lists are joined). Only finished sessions (ended, or quiet for 12 hours) with a
+  prompt, started after the lesson, in its scope. `MIN_SESSIONS` (10)
   on each side, then `helps` (20% lower), `no effect` (not lower) or `unclear`. `helps` adds
   `verified: process:holdout` to a draft's file and a `confirmed` change (with `before`, so undo
   keeps the draft), once per lesson by its history.
   Probe: a non-`preference` lesson whose `model` (a column added by migration in `openDb()`)
-  differs from the session's is held out in every session. After `PROBE_SESSIONS` (5) sessions
+  differs from the session's is held out in every session; a session whose lists show the lesson
+  is no probe evidence. After `PROBE_SESSIONS` (5) sessions
   of the newest model, friction no higher than with the lesson archives it as `fixed`; else it
   is `kept` with that model (`before` holds the old one, for undo), and only later sessions count.
   `openDb()` fills the new column from each file's `observed_with.model`; `load.mjs` reads an old
   schema with a `NULL` model. `retire()` also archives `no effect` lessons and project
   lessons with no session in the project for `IDLE_DAYS` (90). Archive is `deprecated` with
-  `retired` in the file and an `archived` change; pinned lessons are never retired.
+  `retired` in the file and an `archived` change; pinned lessons are never retired. `scoreAll()`
+  rereads each lesson inside its transaction, so a pin made meanwhile holds.
 - `lib/manage.mjs` and `commands/forget.md`, `pin.md`, `undo.md`: forget sets `deprecated`
   (`retired: "vetoed"` in the file; the key still blocks re-learning), pin sets `stable` with
   `verified: human:local`, undo restores the `before` of the latest `changes` row not undone (a
