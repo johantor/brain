@@ -78,6 +78,22 @@ Paths in *Map* and *Gotchas* are relative to `plugin/`, the directory users inst
   lessons with no session in the project for `IDLE_DAYS` (90). Archive is `deprecated` with
   `retired` in the file and an `archived` change; pinned lessons are never retired. `scoreAll()`
   rereads each lesson inside its transaction, so a pin made meanwhile holds.
+- `lib/skills.mjs`, `skills/distill/SKILL.md`: `clusters()` groups live global lessons by the
+  tools their code spans name; `MIN_LESSONS` (3) make a cluster. At a clean `Stop` with no
+  friction, `reflect.decide()` asks for `brain:distill` on the first of `waitingClusters()` (no
+  live skill covers it; at most `MAX_SKILLS`, 5) not asked about in 7 days. `propose()` takes
+  the draft's `tool`, and inside one transaction checks the cluster, the name, and the text like a
+  global lesson (scrubbed with the project's names, no placeholders, code spans of a tool and
+  flags only, no script names; a description of at most 200 characters, a prose body with no
+  frontmatter or tool settings), writes brain's own frontmatter and stages it under
+  `<brain dir>/skills/` as `pending`, with its source lesson ids. `lifecycle()` (async
+  `SessionStart`, with `learn` on) installs a pending skill in `<config>/skills/brain-<name>/`
+  after `VETO_DAYS` (3), unless a source lesson is now `deprecated` (then it retires it), and
+  retires an active one with no `Skill` call for `UNUSED_DAYS` (30). An install that fails to log
+  removes its folder again. brain removes only an active skill's folder whose `SKILL.md` names
+  it. Skill changes are `changes` rows with lesson 0, which undo skips; `/brain:forget S<n>`
+  retires one. `capture.mjs` keeps the scrubbed skill name of a `Skill`
+  call. `lifecycle()` rereads each row inside its transaction.
 - `lib/memory.mjs`: reads every `<config>/projects/*/memory/MEMORY.md` (one entry per line;
   list markers and links dropped, case and punctuation ignored) and prints the entries found in
   2+ projects that `~/.claude/CLAUDE.md` does not hold yet. Writes nothing (#2). The `brain`
@@ -107,7 +123,8 @@ Paths in *Map* and *Gotchas* are relative to `plugin/`, the directory users inst
   version, tokens_in, tokens_cached, tokens_out, interrupts), `events` (sid, ts, kind, tool, call,
   code, text), `queue` (sid, reason `end`|`no-end`, ts), `transcripts` (sid, sig: mtime and size
   of each file), `lessons` (id, key, description, kind, scope, project, status, created: an index
-  of the lesson files), `changes` (id, ts, lesson, action, before as JSON, undone), `scores` (lesson, loaded_n, held_n,
+  of the lesson files), `changes` (id, ts, lesson, action, before as JSON, undone), `skills` (id, name, tool,
+  description, body, status, created, activated, lessons), `scores` (lesson, loaded_n, held_n,
   loaded_rate, held_rate, verdict). View `denials`: a `permission` row with no later `tool_ok`/`tool_fail` of the same
   call. Retention: records 90 days, queue 7.
 - `lib/scan.mjs`: `scan(db)` reads `<config>/projects/*/<sid>.jsonl` and

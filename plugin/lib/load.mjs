@@ -55,9 +55,14 @@ export function notice(db, since) {
   const rows = db.prepare('SELECT lesson, action FROM changes WHERE ts > ? ORDER BY id').all(since);
   if (!rows.length) return null;
   const by = {};
-  for (const r of rows) (by[r.action] ??= []).push(`L${r.lesson}`);
-  const parts = Object.entries(by).map(([action, ids]) => `${action} ${ids.slice(0, 5).join(', ')}${ids.length > 5 ? ` and ${ids.length - 5} more` : ''}`);
-  return `brain: since the last session, ${parts.join('; ')}. /brain:undo reverses the latest.`;
+  for (const r of rows) (by[r.action] ??= []).push(r.lesson ? `L${r.lesson}` : null);
+  const list = (ids) => ids.filter(Boolean);
+  const parts = Object.entries(by).map(([action, all]) => {
+    const ids = list(all);
+    if (!ids.length) return `${action} (${all.length})`;
+    return `${action} ${ids.slice(0, 5).join(', ')}${ids.length > 5 ? ` and ${ids.length - 5} more` : ''}`;
+  });
+  return `brain: since the last session, ${parts.join('; ')}. /brain:undo reverses the latest lesson change; /brain:forget S<n> removes a skill.`;
 }
 
 export function main(input = fs.readFileSync(0, 'utf8')) {

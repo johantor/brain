@@ -12,6 +12,7 @@ import { brainDir, isMain } from './paths.mjs';
 import { writeLearned } from './manage.mjs';
 import { decide } from './reflect.mjs';
 import { scoreAll } from './score.mjs';
+import { lifecycle } from './skills.mjs';
 import { scan } from './scan.mjs';
 import { projectNames, scrub } from './scrub.mjs';
 
@@ -30,6 +31,14 @@ export function program(p, names = []) {
   const word = p.tool_input.command.trim().split(/\s+/).find((w) => !w.includes('='));
   const name = word && scrub(path.basename(word), names);
   return name && /^[\w.+-]{1,40}$/.test(name) ? name : null;
+}
+
+// Scrubbed like any text: a skill can be named after a project or hold a token.
+export function skillName(input, names = []) {
+  const s = input?.skill;
+  if (typeof s !== 'string' || !/^[\w:.-]{1,80}$/.test(s)) return null;
+  const name = scrub(s.replace(/^.*:/, ''), names);
+  return /^[\w.-]+$/.test(name) ? name : null;
 }
 
 // A failed Bash call's error starts with `Exit code N`; a success carries no code.
@@ -63,7 +72,8 @@ export function record(db, p, now = Date.now()) {
       const text = scrub(p.prompt, projectNames(p.cwd));
       if (text) event('prompt', { text: text.slice(0, PROMPT_MAX) });
     },
-    PostToolUse: () => event('tool_ok', call()),
+    // For a Skill call, the skill's name: skills.mjs retires brain skills nobody uses.
+    PostToolUse: () => event('tool_ok', { ...call(), text: p.tool_name === 'Skill' ? skillName(p.tool_input, projectNames(p.cwd)) : null }),
     PostToolUseFailure: () => event('tool_fail', { ...call(), code: exitCode(p.error), text: program(p, projectNames(p.cwd)) }),
     PermissionRequest: () => event('permission', call()),
     Stop: () => {},
@@ -119,7 +129,10 @@ export async function main() {
       }
       // The scan also backfills every transcript on the first run after install.
       await scan(db);
-      if (learn) scoreAll(db);
+      if (learn) {
+        scoreAll(db);
+        lifecycle(db);
+      }
     }
     if (payload?.hook_event_name === 'Stop' && typeof payload.session_id === 'string') {
       const enabled = readConfig().reflect;

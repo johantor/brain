@@ -41,7 +41,8 @@ export function pin(db, id, now = Date.now()) {
 }
 
 export function undo(db, now = Date.now()) {
-  const c = db.prepare('SELECT * FROM changes WHERE undone = 0 ORDER BY id DESC LIMIT 1').get();
+  // Skill changes are logged with lesson 0; /brain:forget S<n> reverses those instead.
+  const c = db.prepare('SELECT * FROM changes WHERE undone = 0 AND lesson > 0 ORDER BY id DESC LIMIT 1').get();
   if (!c) return 'nothing to undo';
   const before = c.before ? JSON.parse(c.before) : null;
   // A proposal has no earlier state: undoing it is a veto.

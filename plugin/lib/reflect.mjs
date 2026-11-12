@@ -4,9 +4,11 @@
 import { fileURLToPath } from 'node:url';
 import { DAY, QUEUE_DAYS } from './db.mjs';
 import { projectRoot } from './ask.mjs';
+import { waitingClusters } from './skills.mjs';
 
 export const MAX_PER_SESSION = 3;
 const PROPOSE = fileURLToPath(new URL('./propose.mjs', import.meta.url));
+const SKILLS = fileURLToPath(new URL('./skills.mjs', import.meta.url));
 
 // A prompt that pushes back on the last turn. A cheap marker, not a classifier: the
 // reflection itself judges whether there was a lesson.
@@ -52,6 +54,15 @@ function instruction(sid, what, fromRecord) {
   ].join(' ');
 }
 
+function distillInstruction(cluster) {
+  return [
+    `brain: ${cluster.lessons.length} lessons name \`${cluster.tool}\`: ${cluster.lessons.map((l) => `L${l.id} "${l.description}"`).join('; ')}.`,
+    'Use the brain:distill skill now, briefly, to draft one skill from them.',
+    `Stage it with: node --disable-warning=ExperimentalWarning "${SKILLS}" propose, with "tool": "${cluster.tool}" in the JSON.`,
+    'Then end the turn with one short line on what you staged, or "no skill".',
+  ].join(' ');
+}
+
 // Returns the additionalContext to send, or null to let the stop proceed. Run it in one
 // transaction (capture.mjs does), so two sessions cannot claim the same queued episode.
 export function decide(db, payload, { enabled, now = Date.now() }) {
@@ -73,6 +84,15 @@ export function decide(db, payload, { enabled, now = Date.now() }) {
     return instruction(sid, describe(items), false);
   }
   if (items.length) return null;
+
+  // A clean stop with room for a skill and a group of lessons waiting for one. A group
+  // is asked about once a week at most, so "no skill" is not asked again every session.
+  const asked = db.prepare("SELECT 1 FROM events WHERE kind = 'reflect' AND text = ? AND ts > ?");
+  const cluster = waitingClusters(db).find((c) => !asked.get(`distill:${c.tool}`, now - 7 * DAY));
+  if (cluster) {
+    db.prepare("INSERT INTO events (sid, ts, kind, text) VALUES (?, ?, 'reflect', ?)").run(sid, now, `distill:${cluster.tool}`);
+    return distillInstruction(cluster);
+  }
 
   // A clean session can take one queued session of the same project.
   const cwd = db.prepare('SELECT cwd FROM sessions WHERE sid = ?').get(sid)?.cwd;
