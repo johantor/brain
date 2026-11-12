@@ -1,5 +1,5 @@
 ---
-description: "Reverse brain's latest change to a lesson: a proposal, a forget, a pin or an edit."
+description: "Reverse brain's latest change to a lesson: a proposal, a forget or a pin."
 ---
 
 Run this one command with the Bash tool:

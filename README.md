@@ -83,8 +83,8 @@ You stay in charge of every lesson:
 
 | To | Do |
 |---|---|
-| Stop a lesson for good | `/brain:forget L12`, say "forget that lesson", or delete its line in `learned.md` |
-| Keep a lesson, loaded first | `/brain:pin L12`, or edit its line in `learned.md` to your wording |
+| Stop a lesson for good | `/brain:forget L12`, or say "forget that lesson" |
+| Keep a lesson, loaded first | `/brain:pin L12` |
 | Reverse brain's latest change | `/brain:undo` |
 
 A session starts with one line that lists what changed since the last one. Every change is also
