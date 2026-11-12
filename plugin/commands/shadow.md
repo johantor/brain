@@ -10,4 +10,5 @@ node "${CLAUDE_PLUGIN_ROOT}/lib/config.mjs" reflect
 ```
 
 Report its one line of output as printed. When it turned reflection on, add one sentence: lessons
-are stored as drafts, nothing loads into a session, and the `brain` skill lists them.
+are stored as drafts, they load into sessions only once `/brain:learn on` is set, and the `brain`
+skill lists them.

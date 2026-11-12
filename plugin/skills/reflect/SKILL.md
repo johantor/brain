@@ -5,8 +5,8 @@ description: Drafts lessons from friction in a Claude Code session (a correction
 
 # brain: reflect
 
-A brain hook stopped the turn because this session (or a queued one) had friction and the trouble
-is now over. Work out what to learn, briefly. Spend a few hundred tokens, not thousands.
+A brain hook asked for this at the end of a turn: this session (or a queued one) had friction,
+and the trouble is now over. Work out what to learn, briefly. Spend a few hundred tokens, not thousands.
 
 1. **Find the episode.** What went wrong, what was tried, and what fixed it. Use this
    conversation; for a queued session, read its record with the `brain` skill.
@@ -33,4 +33,4 @@ is now over. Work out what to learn, briefly. Spend a few hundred tokens, not th
    to get around it.
 7. **End the turn** with one short line: what was stored, or "brain: no lesson". Nothing else.
 
-Stored lessons are drafts in shadow mode: nothing loads into a session yet.
+Stored lessons are drafts. They load into later sessions only when the user turned loading on.

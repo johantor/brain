@@ -57,27 +57,11 @@ Paths in *Map* and *Gotchas* are relative to `plugin/`, the directory users inst
   `deprecated`, pinned (`stable`) first, within `BUDGET` (4,000 characters) as
   `additionalContext`, plus a `systemMessage` for the user listing `changes` since the
   `.noticed` file's mtime. Prints nothing when off or on any error, which goes to `errors.log`.
-- `lib/score.mjs`: holdout. `held(sid, lesson)` is a hash of both, true for about 30% of
-  sessions, never for a pinned lesson; `load.mjs` leaves held lessons out. With `learn` on, the
-  async `SessionStart` capture adds a `loaded` event row whose `text` lists the ids
-  `load.select()` chose (`,1,4,`), and after the scan `scoreAll()` compares friction per prompt
-  (`reflect.friction`) between sessions that loaded each lesson and sessions that held it out; a
-  session where it did not fit the budget counts for neither. One row per session (a resumed
-  session's lists are joined). Only finished sessions (ended, or quiet for 12 hours) with a
-  prompt, started after the lesson, in its scope. `MIN_SESSIONS` (10)
-  on each side, then `helps` (20% lower), `no effect` (not lower) or `unclear`. `helps` adds
-  `verified: process:holdout` to a draft's file and a `confirmed` change (with `before`, so undo
-  keeps the draft), once per lesson by its history.
-  Probe: a non-`preference` lesson whose `model` (a column added by migration in `openDb()`)
-  differs from the session's is held out in every session; a session whose lists show the lesson
-  is no probe evidence. After `PROBE_SESSIONS` (5) sessions
-  of the newest model, friction no higher than with the lesson archives it as `fixed`; else it
-  is `kept` with that model (`before` holds the old one, for undo), and only later sessions count.
-  `openDb()` fills the new column from each file's `observed_with.model`; `load.mjs` reads an old
-  schema with a `NULL` model. `retire()` also archives `no effect` lessons and project
-  lessons with no session in the project for `IDLE_DAYS` (90). Archive is `deprecated` with
-  `retired` in the file and an `archived` change; pinned lessons are never retired. `scoreAll()`
-  rereads each lesson inside its transaction, so a pin made meanwhile holds.
+- `lib/retire.mjs`: `retireIdle()` (async `SessionStart`, with `learn` on) archives a project
+  lesson whose project has had no session for `IDLE_DAYS` (90): `deprecated`, `retired` in the
+  file and an `archived` change; pinned lessons never, and each lesson is reread inside its
+  transaction. Nothing scores lessons: holdout judged noise (README, *Known gaps*), so every
+  lesson loads.
 - `lib/skills.mjs`, `skills/distill/SKILL.md`: `clusters()` groups live global lessons by the
   tools their code spans name; `MIN_LESSONS` (3) make a cluster. At a clean `Stop` with no
   friction, `reflect.decide()` asks for `brain:distill` on the first of `waitingClusters()` (no
@@ -124,9 +108,9 @@ Paths in *Map* and *Gotchas* are relative to `plugin/`, the directory users inst
   code, text), `queue` (sid, reason `end`|`no-end`, ts), `transcripts` (sid, sig: mtime and size
   of each file), `lessons` (id, key, description, kind, scope, project, status, created: an index
   of the lesson files), `changes` (id, ts, lesson, action, before as JSON, undone), `skills` (id, name, tool,
-  description, body, status, created, activated, lessons), `scores` (lesson, loaded_n, held_n,
-  loaded_rate, held_rate, verdict). View `denials`: a `permission` row with no later `tool_ok`/`tool_fail` of the same
-  call. Retention: records 90 days, queue 7.
+  description, body, status, created, activated, lessons). Databases from 0.8.0 to 0.10.x also
+  hold a `scores` table and a `lessons.model` column, both unused. View `denials`: a
+  `permission` row with no later `tool_ok`/`tool_fail` of the same call. Retention: records 90 days, queue 7.
 - `lib/scan.mjs`: `scan(db)` reads `<config>/projects/*/<sid>.jsonl` and
   `<sid>/subagents/*.jsonl` whole, only when the signature changed, only within 90 days. Tokens
   are summed once per `message.id`; interrupts are user lines that start with
