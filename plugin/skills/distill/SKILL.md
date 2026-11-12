@@ -22,7 +22,7 @@ description until a task needs it, so these lessons may work better as one skill
 
    ```bash
    node --disable-warning=ExperimentalWarning "<skills.mjs path>" propose <<'JSON'
-   {"name": "…", "description": "…", "body": "…"}
+   {"tool": "<the tool the hook message named>", "name": "…", "description": "…", "body": "…"}
    JSON
    ```
 

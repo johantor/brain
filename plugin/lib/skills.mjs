@@ -9,7 +9,8 @@ import path from 'node:path';
 import { DAY, openDb, tx } from './db.mjs';
 import { recordChange } from './lessons.mjs';
 import { brainDir, isMain } from './paths.mjs';
-import { scrub } from './scrub.mjs';
+import { SCRIPT_RE, codeSpansOk } from './propose.mjs';
+import { projectNames, scrub } from './scrub.mjs';
 
 export const MIN_LESSONS = 3;
 export const MAX_SKILLS = 5;
@@ -33,28 +34,32 @@ export function clusters(db) {
   return [...groups.entries()].filter(([, ls]) => ls.length >= MIN_LESSONS).map(([tool, lessons]) => ({ tool, lessons }));
 }
 
-// The first cluster no skill covers yet, while there is room for one more skill.
-export function nextCluster(db) {
+// Clusters no skill covers yet, while there is room for one more skill.
+export function waitingClusters(db) {
   const live = db.prepare("SELECT tool FROM skills WHERE status IN ('pending', 'active')").all().map((r) => r.tool);
-  if (live.length >= MAX_SKILLS) return null;
-  return clusters(db).find((c) => !live.includes(c.tool)) ?? null;
+  if (live.length >= MAX_SKILLS) return [];
+  return clusters(db).filter((c) => !live.includes(c.tool));
 }
 
 const NOT_ALLOWED = /<(secret|email|ip|url|path|host|project)>/;
 
-// Checks a drafted skill. Returns { skill } or { reject }.
-export function checkSkill(c, tool) {
+// Checks a drafted skill like a global lesson: scrubbed with the project's names, no
+// placeholders left, code spans that name only a tool and flags, no script names.
+export function checkSkill(c, tool, names = []) {
   if (!c || typeof c !== 'object') return { reject: 'the draft must be a JSON object' };
   if (typeof c.name !== 'string' || !/^[a-z][a-z0-9-]{2,30}$/.test(c.name)) return { reject: 'name must be 3 to 31 lowercase letters, digits or hyphens' };
   if (typeof c.description !== 'string' || !c.description.trim() || c.description.length > DESCRIPTION_MAX) {
     return { reject: `description must be one line of at most ${DESCRIPTION_MAX} characters` };
   }
   if (typeof c.body !== 'string' || !c.body.trim() || c.body.length > BODY_MAX) return { reject: `body must be prose of at most ${BODY_MAX} characters` };
-  const description = scrub(c.description.replace(/\s+/g, ' ').trim());
-  const body = scrub(c.body.trim());
+  const description = scrub(c.description.replace(/\s+/g, ' ').trim(), names);
+  const body = scrub(c.body.trim(), names);
   // Frontmatter is brain's to write: a body cannot open a second block or reach outside.
   if (/^---\s*$/m.test(body) || /^\s*(allowed-tools|hooks|model)\s*:/im.test(body)) return { reject: 'the body may not hold frontmatter or tool settings' };
   if (NOT_ALLOWED.test(description) || NOT_ALLOWED.test(body)) return { reject: 'a skill names no URL, path, host, project or secret' };
+  if (![description, body].every(codeSpansOk) || SCRIPT_RE.test(description) || SCRIPT_RE.test(body)) {
+    return { reject: 'a skill may name a tool and its flags, not a script or a command with arguments' };
+  }
   return { skill: { name: c.name, tool, description, body } };
 }
 
@@ -70,15 +75,17 @@ function installedDir(name) {
   return path.join(skillsHome(), `brain-${name}`);
 }
 
-export function propose(db, draft, now = Date.now()) {
-  const cluster = nextCluster(db);
-  if (!cluster) return { reject: 'no group of lessons is waiting for a skill' };
-  const checked = checkSkill(draft, cluster.tool);
-  if (checked.reject) return checked;
-  const s = checked.skill;
-  if (db.prepare('SELECT 1 FROM skills WHERE name = ?').get(s.name)) return { reject: `a skill named brain-${s.name} exists` };
-  if (fs.existsSync(installedDir(s.name))) return { reject: `${installedDir(s.name)} exists and is not brain's` };
+// The draft names the tool the hook message asked about. Every check runs inside the
+// write lock, so two proposals cannot both take the last free slot or one cluster.
+export function propose(db, draft, now = Date.now(), names = []) {
   return tx(db, () => {
+    const cluster = waitingClusters(db).find((c) => c.tool === draft?.tool);
+    if (!cluster) return { reject: 'no group of lessons is waiting for a skill on that tool' };
+    const checked = checkSkill(draft, cluster.tool, names);
+    if (checked.reject) return checked;
+    const s = checked.skill;
+    if (db.prepare('SELECT 1 FROM skills WHERE name = ?').get(s.name)) return { reject: `a skill named brain-${s.name} exists` };
+    if (fs.existsSync(installedDir(s.name))) return { reject: `${installedDir(s.name)} exists and is not brain's` };
     const { lastInsertRowid: id } = db.prepare(`INSERT INTO skills (name, tool, description, body, status, created)
       VALUES (?, ?, ?, ?, 'pending', ?)`).run(s.name, s.tool, s.description, s.body, now);
     fs.mkdirSync(path.dirname(stagingFile(s.name)), { recursive: true, mode: 0o700 });
@@ -90,20 +97,28 @@ export function propose(db, draft, now = Date.now()) {
 
 // Activates pending skills past the veto window, and retires active ones unused for 30
 // days. Use is a Skill tool call naming the skill (capture.mjs records it).
+// Each decision rereads its row inside the write lock: a skill forgotten meanwhile, or
+// used meanwhile, is left alone.
 export function lifecycle(db, now = Date.now()) {
-  for (const s of db.prepare("SELECT * FROM skills WHERE status = 'pending' AND created <= ?").all(now - VETO_DAYS * DAY)) {
+  const row = (id) => db.prepare('SELECT * FROM skills WHERE id = ?').get(id);
+  for (const { id } of db.prepare("SELECT id FROM skills WHERE status = 'pending' AND created <= ?").all(now - VETO_DAYS * DAY)) {
     tx(db, () => {
-      if (fs.existsSync(installedDir(s.name))) return;
+      const s = row(id);
+      if (s?.status !== 'pending' || fs.existsSync(installedDir(s.name))) return;
       fs.mkdirSync(installedDir(s.name), { recursive: true });
       fs.writeFileSync(path.join(installedDir(s.name), 'SKILL.md'), render(s));
       db.prepare("UPDATE skills SET status = 'active', activated = ? WHERE id = ?").run(now, s.id);
       recordChange(db, { lesson: 0, action: 'skill activated', now, note: `S${s.id} brain-${s.name}` });
     });
   }
-  for (const s of db.prepare("SELECT * FROM skills WHERE status = 'active'").all()) {
-    const used = db.prepare("SELECT max(ts) AS t FROM events WHERE kind = 'tool_ok' AND tool = 'Skill' AND text = ?").get(`brain-${s.name}`).t;
-    if (Math.max(used ?? 0, s.activated) > now - UNUSED_DAYS * DAY) continue;
-    tx(db, () => retireSkill(db, s, 'unused for 30 days', now));
+  for (const { id } of db.prepare("SELECT id FROM skills WHERE status = 'active'").all()) {
+    tx(db, () => {
+      const s = row(id);
+      if (s?.status !== 'active') return;
+      const used = db.prepare("SELECT max(ts) AS t FROM events WHERE kind = 'tool_ok' AND tool = 'Skill' AND text = ?").get(`brain-${s.name}`).t;
+      if (Math.max(used ?? 0, s.activated) > now - UNUSED_DAYS * DAY) return;
+      retireSkill(db, s, 'unused for 30 days', now);
+    });
   }
 }
 
@@ -134,7 +149,7 @@ export function main(argv = process.argv.slice(2), input) {
         console.log('rejected: the input is not JSON');
         return 1;
       }
-      const out = propose(db, draft);
+      const out = propose(db, draft, Date.now(), projectNames(process.cwd()));
       console.log(out.reject ? `rejected: ${out.reject}` : `staged S${out.id} brain-${out.name}: active in ${VETO_DAYS} days unless forgotten`);
       return out.reject ? 1 : 0;
     }

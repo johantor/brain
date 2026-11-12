@@ -16,7 +16,7 @@ const NEVER = /<(secret|email|ip)>/;
 const NOT_GLOBAL = /<(secret|email|ip|url|path|host|project)>/;
 const VERSION_RE = /\b\d+\.\d+(?:\.\d+)?\b/;
 // A script by name, with or without backticks: `setup.sh`, deploy.ps1.
-const SCRIPT_RE = /\b[\w-]+\.(?:sh|bash|zsh|ps1|psm1|bat|cmd|exe|py|rb|pl|js|mjs|cjs|ts)\b/i;
+export const SCRIPT_RE = /\b[\w-]+\.(?:sh|bash|zsh|ps1|psm1|bat|cmd|exe|py|rb|pl|js|mjs|cjs|ts)\b/i;
 
 // A code span names a tool and its flags, never a script or arguments: `rg`, `grep -r`.
 // That blocks an injected `setup.sh --trust` from becoming a global habit.

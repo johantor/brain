@@ -62,7 +62,7 @@ export function notice(db, since) {
     if (!ids.length) return `${action} (${all.length})`;
     return `${action} ${ids.slice(0, 5).join(', ')}${ids.length > 5 ? ` and ${ids.length - 5} more` : ''}`;
   });
-  return `brain: since the last session, ${parts.join('; ')}. /brain:undo reverses the latest.`;
+  return `brain: since the last session, ${parts.join('; ')}. /brain:undo reverses the latest lesson change; /brain:forget S<n> removes a skill.`;
 }
 
 export function main(input = fs.readFileSync(0, 'utf8')) {

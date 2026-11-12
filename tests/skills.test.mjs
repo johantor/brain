@@ -7,10 +7,10 @@ import { test } from 'node:test';
 import { record, skillName } from '../plugin/lib/capture.mjs';
 import { DAY, openDb } from '../plugin/lib/db.mjs';
 import { decide } from '../plugin/lib/reflect.mjs';
-import { MAX_SKILLS, UNUSED_DAYS, VETO_DAYS, checkSkill, clusters, forgetSkill, lifecycle, nextCluster, propose } from '../plugin/lib/skills.mjs';
+import { MAX_SKILLS, UNUSED_DAYS, VETO_DAYS, checkSkill, clusters, forgetSkill, lifecycle, propose, waitingClusters } from '../plugin/lib/skills.mjs';
 
 const NOW = Date.parse('2026-11-11T12:00:00Z');
-const draft = { name: 'rg-search', description: 'Searching a codebase from the shell: how to use rg well.', body: 'Use `rg` for searches. It respects ignore files and is fast.' };
+const draft = { tool: 'rg', name: 'rg-search', description: 'Searching a codebase from the shell: how to use rg well.', body: 'Use `rg` for searches. It respects ignore files and is fast.' };
 
 // brain and config dirs in temp; `n` global lessons that name `rg`.
 function setup(t, n = 3) {
@@ -32,7 +32,7 @@ function setup(t, n = 3) {
 test('three lessons on one tool make a cluster; two do not', (t) => {
   const { db } = setup(t);
   assert.deepEqual(clusters(db).map((c) => [c.tool, c.lessons.length]), [['rg', 3]]);
-  assert.equal(nextCluster(setup(t, 2).db), null);
+  assert.deepEqual(waitingClusters(setup(t, 2).db), []);
 });
 
 test('checkSkill writes its own frontmatter and refuses settings, URLs and long descriptions', () => {
@@ -78,7 +78,7 @@ test('brain never touches a skill folder it did not write', (t) => {
 test('at most five live skills', (t) => {
   const { db } = setup(t);
   for (let i = 0; i < MAX_SKILLS; i++) db.prepare("INSERT INTO skills (name, tool, description, body, status, created) VALUES (?, ?, 'd', 'b', 'active', 0)").run(`s${i}`, `t${i}`);
-  assert.equal(nextCluster(db), null);
+  assert.deepEqual(waitingClusters(db), []);
 });
 
 test('a clean stop asks to distill a waiting cluster, once a week', (t) => {
@@ -95,4 +95,37 @@ test('skillName keeps the name of a plugin skill without its plugin', () => {
   assert.equal(skillName({ skill: 'brain-rg-search' }), 'brain-rg-search');
   assert.equal(skillName({ skill: 'brain:reflect' }), 'reflect');
   assert.equal(skillName({ skill: 'x y' }), null);
+});
+
+test('drafts are scrubbed with the project names, and hold no secret, command or script', () => {
+  assert.match(checkSkill({ ...draft, body: 'In acme-web, search with rg.' }, 'rg', ['acme-web']).reject, /project/);
+  assert.match(checkSkill({ ...draft, description: 'Search with rg, token sk-aaaaaaaaaaaaaaaaaaaa.' }, 'rg').reject, /secret/);
+  assert.match(checkSkill({ ...draft, body: 'First run `npm install left-pad` here.' }, 'rg').reject, /tool and its flags/);
+  assert.match(checkSkill({ ...draft, body: 'Run setup.sh before you search.' }, 'rg').reject, /tool and its flags/);
+});
+
+test('a draft must name a waiting tool; a declined tool does not block the next one', (t) => {
+  const { db } = setup(t);
+  for (let i = 4; i <= 6; i++) {
+    db.prepare(`INSERT INTO lessons (id, key, description, kind, scope, status, created) VALUES (?, ?, ?, 'tool-habit', 'global', 'draft', ?)`)
+      .run(i, `k${i}`, `Use \`fd\` with rule ${i} when finding files in a large tree.`, NOW);
+  }
+  assert.match(propose(db, { ...draft, tool: 'git' }, NOW).reject, /waiting/);
+  record(db, { session_id: 'a', cwd: '/w/shop', hook_event_name: 'UserPromptSubmit', prompt: 'x' }, NOW);
+  assert.match(decide(db, { session_id: 'a' }, { enabled: true, now: NOW + 1 }), /name `rg`/);
+  record(db, { session_id: 'b', cwd: '/w/shop', hook_event_name: 'UserPromptSubmit', prompt: 'y' }, NOW + 2);
+  assert.match(decide(db, { session_id: 'b' }, { enabled: true, now: NOW + 3 }), /name `fd`/);
+});
+
+test('lifecycle leaves alone a skill forgotten after it was listed', (t) => {
+  const { db, installed } = setup(t);
+  propose(db, draft, NOW);
+  forgetSkill(db, 1, NOW + 1);
+  lifecycle(db, NOW + VETO_DAYS * DAY);
+  assert.ok(!fs.existsSync(installed('rg-search')));
+  assert.equal(db.prepare('SELECT status FROM skills').get().status, 'retired');
+});
+
+test('a Skill call named after the project is scrubbed before it is stored', () => {
+  assert.equal(skillName({ skill: 'acme-web' }, ['acme-web']), null);
 });

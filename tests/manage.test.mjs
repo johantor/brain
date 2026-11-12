@@ -75,5 +75,5 @@ test('the notice lists changes since the last one', (t) => {
   const { db } = setup(t);
   forget(db, 2, NOW + 10);
   assert.equal(notice(db, NOW + 10), null);
-  assert.equal(notice(db, NOW - 1), 'brain: since the last session, proposed L1, L2; forgotten L2. /brain:undo reverses the latest.');
+  assert.equal(notice(db, NOW - 1), 'brain: since the last session, proposed L1, L2; forgotten L2. /brain:undo reverses the latest lesson change; /brain:forget S<n> removes a skill.');
 });

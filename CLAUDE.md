@@ -75,15 +75,18 @@ Paths in *Map* and *Gotchas* are relative to `plugin/`, the directory users inst
   `retired` in the file and an `archived` change; pinned lessons are never retired.
 - `lib/skills.mjs`, `skills/distill/SKILL.md`: `clusters()` groups live global lessons by the
   tools their code spans name; `MIN_LESSONS` (3) make a cluster. At a clean `Stop` with no
-  friction, `reflect.decide()` asks for `brain:distill` on the first cluster no live skill covers
-  (at most `MAX_SKILLS`, 5), once a week per tool. `propose()` checks the draft (name, a
-  description of at most 200 characters, a prose body with no frontmatter, tool settings or
-  scrubbed placeholders), writes brain's own frontmatter and stages it under
+  friction, `reflect.decide()` asks for `brain:distill` on the first of `waitingClusters()` (no
+  live skill covers it; at most `MAX_SKILLS`, 5) not asked about in 7 days. `propose()` takes
+  the draft's `tool`, and inside one transaction checks the cluster, the name, and the text like a
+  global lesson (scrubbed with the project's names, no placeholders, code spans of a tool and
+  flags only, no script names; a description of at most 200 characters, a prose body with no
+  frontmatter or tool settings), writes brain's own frontmatter and stages it under
   `<brain dir>/skills/` as `pending`. `lifecycle()` (async `SessionStart`, with `learn` on)
   installs a pending skill in `<config>/skills/brain-<name>/` after `VETO_DAYS` (3) and retires an
   active one with no `Skill` call for `UNUSED_DAYS` (30). brain removes only a folder whose
   `SKILL.md` names its skill. Skill changes are `changes` rows with lesson 0, which undo skips;
-  `/brain:forget S<n>` retires one. `capture.mjs` keeps the skill name of a `Skill` call.
+  `/brain:forget S<n>` retires one. `capture.mjs` keeps the scrubbed skill name of a `Skill`
+  call. `lifecycle()` rereads each row inside its transaction.
 - `lib/memory.mjs`: reads every `<config>/projects/*/memory/MEMORY.md` (one entry per line;
   list markers and links dropped, case and punctuation ignored) and prints the entries found in
   2+ projects that `~/.claude/CLAUDE.md` does not hold yet. Writes nothing (#2). The `brain`
