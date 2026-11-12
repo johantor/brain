@@ -1,4 +1,4 @@
-// The user's control over lessons: forget, pin, undo, learned.md edits and the notice.
+// The user's control over lessons: forget, pin, undo, learned.md and the notice.
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -8,7 +8,7 @@ import { record } from '../plugin/lib/capture.mjs';
 import { openDb } from '../plugin/lib/db.mjs';
 import { lessonFile, parse } from '../plugin/lib/lessons.mjs';
 import { notice, select } from '../plugin/lib/load.mjs';
-import { forget, pin, syncLearned, undo, writeLearned } from '../plugin/lib/manage.mjs';
+import { forget, pin, undo, writeLearned } from '../plugin/lib/manage.mjs';
 import { check, store } from '../plugin/lib/propose.mjs';
 
 const NOW = Date.parse('2026-11-11T12:00:00Z');
@@ -56,19 +56,15 @@ test('undo reverses the latest change, and a second undo the one before', (t) =>
   assert.equal(front(2).status, 'deprecated');
 });
 
-test('learned.md: a deleted line forgets, an edited line pins the new wording', (t) => {
+test('learned.md lists the live global lessons and says how to change them', (t) => {
   const { db, dir } = setup(t);
+  forget(db, 1, NOW + 1);
   writeLearned(db);
-  const file = path.join(dir, 'learned.md');
-  const text = fs.readFileSync(file, 'utf8');
-  fs.writeFileSync(file, text.replace(/^- L1 .*\n/m, '').replace('Ask before you rename', 'Always ask before you rename'));
-  const done = syncLearned(db, NOW + 5);
-  assert.equal(done.length, 2);
-  assert.equal(front(1).status, 'deprecated');
-  assert.equal(front(2).status, 'stable');
-  assert.match(front(2).description, /^Always ask before you rename/);
-  writeLearned(db);
-  assert.deepEqual(syncLearned(db, NOW + 6), [], 'an unchanged file changes nothing');
+  const text = fs.readFileSync(path.join(dir, 'learned.md'), 'utf8');
+  assert.match(text, /\/brain:forget L<n>/);
+  assert.match(text, /^- L2 \(method-error\): Ask before you rename/m);
+  assert.doesNotMatch(text, /- L1 /);
+  assert.ok(!fs.existsSync(path.join(dir, '.learned.json')));
 });
 
 test('the notice lists changes since the last one', (t) => {
