@@ -164,7 +164,9 @@ Uninstalling leaves `~/.claude/brain`. Delete it to remove the records.
   read. It blocks the forms an injected rule takes (scripts, URLs, paths, commands with
   arguments), stores no other text from the session, and keeps every lesson a draft until phase 3.
 - Holdout compares all friction in a session, not the friction a lesson is about, so a lesson
-  that helps rarely needs many sessions before its score moves.
+  that helps rarely needs many sessions before its score moves. Scoring and probes are a rough
+  measure by design: further edge cases in them are accepted here rather than patched one by one
+  (#16).
 - Lessons are grouped into a skill by the tool their code spans name, not by subject. A skill
   that does not trigger is retired after 30 days; brain does not rewrite its description, and it
   does not draft repo skills for colleagues.
