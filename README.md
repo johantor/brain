@@ -104,8 +104,8 @@ memory.
 
 When three lessons name the same tool, brain asks Claude at a clean stop to merge them into one
 skill, at most once a week per tool. The draft waits 3 days, then goes live as
-`~/.claude/skills/brain-<name>/`; `/brain:forget S<n>` stops it. A brain skill nobody calls for
-30 days is removed. There are at most 5, and brain never changes a skill it did not write.
+`~/.claude/skills/brain-<name>/`, unless you forget one of its lessons first; `/brain:forget S<n>`
+stops it at any time. A brain skill nobody calls for 30 days is removed. There are at most 5, and brain never changes a skill it did not write.
 
 A session starts with one line that lists what changed since the last one. Every change is also
 in `~/.claude/brain/changes.log`.

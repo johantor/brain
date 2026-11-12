@@ -86,8 +86,9 @@ export function propose(db, draft, now = Date.now(), names = []) {
     const s = checked.skill;
     if (db.prepare('SELECT 1 FROM skills WHERE name = ?').get(s.name)) return { reject: `a skill named brain-${s.name} exists` };
     if (fs.existsSync(installedDir(s.name))) return { reject: `${installedDir(s.name)} exists and is not brain's` };
-    const { lastInsertRowid: id } = db.prepare(`INSERT INTO skills (name, tool, description, body, status, created)
-      VALUES (?, ?, ?, ?, 'pending', ?)`).run(s.name, s.tool, s.description, s.body, now);
+    const sources = `,${cluster.lessons.map((l) => l.id).join(',')},`;
+    const { lastInsertRowid: id } = db.prepare(`INSERT INTO skills (name, tool, description, body, status, created, lessons)
+      VALUES (?, ?, ?, ?, 'pending', ?, ?)`).run(s.name, s.tool, s.description, s.body, now, sources);
     fs.mkdirSync(path.dirname(stagingFile(s.name)), { recursive: true, mode: 0o700 });
     fs.writeFileSync(stagingFile(s.name), render(s), { mode: 0o600 });
     recordChange(db, { lesson: 0, action: 'skill drafted', now, note: `S${id} brain-${s.name}, active in ${VETO_DAYS} days unless forgotten` });
@@ -98,17 +99,26 @@ export function propose(db, draft, now = Date.now(), names = []) {
 // Activates pending skills past the veto window, and retires active ones unused for 30
 // days. Use is a Skill tool call naming the skill (capture.mjs records it).
 // Each decision rereads its row inside the write lock: a skill forgotten meanwhile, or
-// used meanwhile, is left alone.
+// used meanwhile, is left alone. A skill whose source lesson was forgotten or archived
+// in the veto window is retired, not installed.
 export function lifecycle(db, now = Date.now()) {
   const row = (id) => db.prepare('SELECT * FROM skills WHERE id = ?').get(id);
+  const dead = db.prepare("SELECT 1 FROM lessons WHERE ? LIKE '%,' || id || ',%' AND status = 'deprecated'");
   for (const { id } of db.prepare("SELECT id FROM skills WHERE status = 'pending' AND created <= ?").all(now - VETO_DAYS * DAY)) {
     tx(db, () => {
       const s = row(id);
       if (s?.status !== 'pending' || fs.existsSync(installedDir(s.name))) return;
+      if (dead.get(s.lessons ?? '')) return retireSkill(db, s, 'a source lesson was forgotten', now);
       fs.mkdirSync(installedDir(s.name), { recursive: true });
       fs.writeFileSync(path.join(installedDir(s.name), 'SKILL.md'), render(s));
-      db.prepare("UPDATE skills SET status = 'active', activated = ? WHERE id = ?").run(now, s.id);
-      recordChange(db, { lesson: 0, action: 'skill activated', now, note: `S${s.id} brain-${s.name}` });
+      try {
+        db.prepare("UPDATE skills SET status = 'active', activated = ? WHERE id = ?").run(now, s.id);
+        recordChange(db, { lesson: 0, action: 'skill activated', now, note: `S${s.id} brain-${s.name}` });
+      } catch (err) {
+        // The rollback keeps the skill pending; a folder left behind would block every retry.
+        fs.rmSync(installedDir(s.name), { recursive: true, force: true });
+        throw err;
+      }
     });
   }
   for (const { id } of db.prepare("SELECT id FROM skills WHERE status = 'active'").all()) {
@@ -123,9 +133,10 @@ export function lifecycle(db, now = Date.now()) {
 }
 
 function retireSkill(db, s, reason, now) {
-  // Only a folder brain wrote: its SKILL.md must still name brain's skill.
+  // Only a folder brain installed: an active skill whose SKILL.md still names it. A pending
+  // skill was never installed, so a folder of that name is the user's.
   const file = path.join(installedDir(s.name), 'SKILL.md');
-  if (fs.existsSync(file) && fs.readFileSync(file, 'utf8').includes(`name: brain-${s.name}\n`)) fs.rmSync(installedDir(s.name), { recursive: true });
+  if (s.status === 'active' && fs.existsSync(file) && fs.readFileSync(file, 'utf8').includes(`name: brain-${s.name}\n`)) fs.rmSync(installedDir(s.name), { recursive: true });
   db.prepare("UPDATE skills SET status = 'retired' WHERE id = ?").run(s.id);
   recordChange(db, { lesson: 0, action: 'skill retired', now, note: `S${s.id} brain-${s.name}: ${reason}` });
 }

@@ -129,3 +129,35 @@ test('lifecycle leaves alone a skill forgotten after it was listed', (t) => {
 test('a Skill call named after the project is scrubbed before it is stored', () => {
   assert.equal(skillName({ skill: 'acme-web' }, ['acme-web']), null);
 });
+
+test('forgetting a pending skill leaves a folder of the same name alone', (t) => {
+  const { db, installed } = setup(t);
+  propose(db, draft, NOW);
+  fs.mkdirSync(path.dirname(installed('rg-search')), { recursive: true });
+  fs.writeFileSync(installed('rg-search'), '---\nname: brain-rg-search\n---\nthe user wrote this\n');
+  forgetSkill(db, 1, NOW + 1);
+  assert.ok(fs.existsSync(installed('rg-search')), 'brain never installed it');
+});
+
+test('a skill whose source lesson was forgotten in the veto window is not installed', (t) => {
+  const { db, installed } = setup(t, 4);
+  propose(db, draft, NOW);
+  db.prepare("UPDATE lessons SET status = 'deprecated' WHERE id = 2").run();
+  lifecycle(db, NOW + VETO_DAYS * DAY);
+  assert.ok(!fs.existsSync(installed('rg-search')), 'L4 still names rg, but the body came from L2');
+  assert.equal(db.prepare('SELECT status FROM skills').get().status, 'retired');
+});
+
+test('an activation that fails to log removes its folder, so the next run can retry', (t) => {
+  const { db, installed } = setup(t);
+  propose(db, draft, NOW);
+  const log = path.join(process.env.CLAUDE_BRAIN_DIR, 'changes.log');
+  fs.rmSync(log);
+  fs.mkdirSync(log);
+  assert.throws(() => lifecycle(db, NOW + VETO_DAYS * DAY));
+  assert.ok(!fs.existsSync(path.dirname(installed('rg-search'))));
+  assert.equal(db.prepare('SELECT status FROM skills').get().status, 'pending');
+  fs.rmdirSync(log);
+  lifecycle(db, NOW + VETO_DAYS * DAY);
+  assert.ok(fs.existsSync(installed('rg-search')));
+});
