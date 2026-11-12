@@ -9,8 +9,8 @@ work out what went wrong, and make the next session better, with no `/learn` ste
 [#3](https://github.com/johantor/brain/issues/3).
 
 brain records the signals, answers questions about them, drafts lessons in shadow mode, and can
-load them into each session. Both start off. Phase 3
-([#5](https://github.com/johantor/brain/issues/5)) adds vetoes, scoring and retirement.
+load them into each session, where it scores them, retires the ones that do not help, and turns
+lessons on one tool into a skill. Drafting and loading both start off.
 
 ```bash
 claude plugin marketplace add johantor/plugins
@@ -30,8 +30,8 @@ claude plugin install brain@johantor
 Tool output is never stored, not even an error's text past its exit code. A fetched page therefore
 cannot plant text that a later reflection reads.
 
-Ended sessions go into a queue for phase 2's reflection. An entry is dropped after 7 days, and a
-record after 90.
+Ended sessions go into a queue for reflection. An entry is dropped after 7 days, and a record
+after 90.
 
 ## Quick start
 
@@ -162,7 +162,8 @@ Uninstalling leaves `~/.claude/brain`. Delete it to remove the records.
   counts as a denial until it finishes.
 - `brain propose` cannot prove that a lesson's words came from you and not from a page Claude
   read. It blocks the forms an injected rule takes (scripts, URLs, paths, commands with
-  arguments), stores no other text from the session, and keeps every lesson a draft until phase 3.
+  arguments) and stores no other text from the session. A draft loads only once you turn loading
+  on, and the line at each session start lists new drafts.
 - Holdout compares all friction in a session, not the friction a lesson is about, so a lesson
   that helps rarely needs many sessions before its score moves. Scoring and probes are a rough
   measure by design: further edge cases in them are accepted here rather than patched one by one

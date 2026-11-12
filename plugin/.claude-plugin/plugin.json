@@ -1,8 +1,8 @@
 {
   "name": "brain",
-  "version": "0.10.0",
+  "version": "0.10.1",
   "license": "Apache-2.0",
-  "description": "Learns from every Claude Code session. Hooks record each session's prompts, failing tool calls, denied permissions, interrupts and token use to a local SQLite file, scrubbed. The brain skill answers questions from the records, and shadow reflection (off by default) drafts lessons that nothing loads yet. /brain:report shows the records.",
+  "description": "Learns from every Claude Code session. Hooks record each session's prompts, failing tool calls, denied permissions, interrupts and token use to a local SQLite file, scrubbed. Reflection (off by default) drafts lessons from your corrections; loading (off by default) puts them in each session, scores them by holdout, retires the ones that do not help, and turns three on one tool into a skill. /brain:report shows the records.",
   "author": {
     "name": "johantor"
   },
