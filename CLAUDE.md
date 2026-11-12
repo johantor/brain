@@ -61,13 +61,16 @@ Paths in *Map* and *Gotchas* are relative to `plugin/`, the directory users inst
   sessions, never for a pinned lesson; `load.mjs` leaves held lessons out. With `learn` on, the
   async `SessionStart` capture adds a `loaded` event row, and after the scan `scoreAll()` compares
   friction per prompt (`reflect.friction`) between sessions that loaded and held each lesson:
-  sessions with a `loaded` row, started after the lesson, in its scope. `MIN_SESSIONS` (10) on
+  finished sessions (ended, or quiet for 12 hours) with a `loaded` row and a prompt, started
+  after the lesson, in its scope. `MIN_SESSIONS` (10) on
   each side, then `helps` (20% lower), `no effect` (not lower) or `unclear`. `helps` adds
   `verified: process:holdout` to a draft's file and a `confirmed` change, once.
   Probe: a non-`preference` lesson whose `model` (a column added by migration in `openDb()`)
   differs from the session's is held out in every session. After `PROBE_SESSIONS` (5), friction
-  no higher than with the lesson archives it as `fixed`; else it is `kept` with the new model,
-  and only sessions after that count. `retire()` also archives `no effect` lessons and project
+  of the newest model, friction no higher than with the lesson archives it as `fixed`; else it
+  is `kept` with that model (`before` holds the old one, for undo), and only later sessions count.
+  `openDb()` fills the new column from each file's `observed_with.model`; `load.mjs` reads an old
+  schema with a `NULL` model. `retire()` also archives `no effect` lessons and project
   lessons with no session in the project for `IDLE_DAYS` (90). Archive is `deprecated` with
   `retired` in the file and an `archived` change; pinned lessons are never retired.
 - `lib/skills.mjs`, `skills/distill/SKILL.md`: `clusters()` groups live global lessons by the
