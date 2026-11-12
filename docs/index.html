@@ -1,0 +1,189 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>brain — a Claude Code plugin that learns from every session</title>
+<meta name="description" content="brain is a Claude Code plugin that learns from every session: it records what went wrong, drafts lessons from your corrections, and loads them, scored, into later sessions. Local only.">
+<link rel="canonical" href="https://johantor.github.io/brain/">
+<meta property="og:type" content="website">
+<meta property="og:title" content="brain — learns from every Claude Code session">
+<meta property="og:description" content="Lessons from your own corrections, scored by holdout and retired when they stop helping. Local only.">
+<meta property="og:url" content="https://johantor.github.io/brain/">
+<meta name="twitter:card" content="summary">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%232f3bff'/%3E%3Ctext x='16' y='22' text-anchor='middle' font-family='Arial' font-weight='900' font-size='17' fill='white'%3Eb%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<nav>
+  <div class="wrap">
+    <span class="brand">brain<i>.</i></span>
+    <ul>
+      <li><a href="#how">How it works</a></li>
+      <li><a href="#control">Your control</a></li>
+      <li><a href="#privacy">Privacy</a></li>
+      <li><a href="#install">Install</a></li>
+      <li><a href="https://github.com/johantor/brain">GitHub&nbsp;↗</a></li>
+    </ul>
+  </div>
+</nav>
+
+<header class="hero">
+  <div class="wrap">
+    <div class="eyebrow">Claude Code plugin · learns from every session</div>
+    <h1>Make the same mistake <em>once.</em></h1>
+    <p class="lede">You correct Claude, and the next session makes the same mistake. brain reads each
+      finished session, drafts a <strong>lesson from your own words</strong>, loads it into later
+      sessions, and <strong>keeps only the lessons that help</strong>. No <code>/learn</code> step.</p>
+
+    <div class="install" id="install">
+<pre id="cmd"><span class="p">$ </span>claude plugin marketplace add johantor/plugins
+<span class="p">$ </span>claude plugin install brain@johantor</pre>
+      <button class="copy" id="copy" type="button">Copy commands</button>
+    </div>
+    <p class="hint">It records from the first session. Run <code>/brain:shadow on</code> to draft
+      lessons and <code>/brain:learn on</code> to load them; both start off.</p>
+
+    <div class="cta">
+      <a class="btn primary" href="#how">See how it learns</a>
+      <a class="btn" href="https://github.com/johantor/brain">Source on GitHub</a>
+    </div>
+  </div>
+</header>
+
+<section id="how">
+  <div class="wrap">
+    <div class="sec-head">
+      <div class="kicker">How it works</div>
+      <h2>Code decides when. Claude only drafts.</h2>
+      <p>Hooks write the signals, rules in code decide when to reflect and what to keep, and a lesson
+        is checked before it is stored.</p>
+    </div>
+    <ol class="steps">
+      <li><b>Record the friction</b><span>Failing calls, denied permissions, interrupts and
+        corrections such as "no, …" go to a local SQLite file, scrubbed. Ask the
+        <code>brain</code> skill what keeps failing, or run <code>/brain:report</code>.</span></li>
+      <li><b>Reflect at a clean stop</b><span>After friction, the first turn that ends clean asks
+        Claude to draft at most two lessons from what you said. brain rejects scripts, URLs, paths
+        and commands with arguments.</span></li>
+      <li><b>Load, score, retire</b><span>Lessons load at session start. Each sits out about 30% of
+        sessions, so brain can compare: one that helps is confirmed, one that does not is
+        archived. Three on one tool become a skill.</span></li>
+    </ol>
+  </div>
+</section>
+
+<section id="control">
+  <div class="wrap">
+    <div class="sec-head">
+      <div class="kicker">Your control</div>
+      <h2>Every change is yours to undo.</h2>
+      <p>A session starts with one line that lists what brain changed since the last one. Every change
+        is also in <code>~/.claude/brain/changes.log</code>.</p>
+    </div>
+    <ul class="cmds">
+      <li><code>/brain:forget L12</code><span>Stops a lesson for good, or say "forget that lesson".</span></li>
+      <li><code>/brain:pin L12</code><span>Keeps a lesson, loaded first and never retired.</span></li>
+      <li><code>/brain:undo</code><span>Reverses brain's latest lesson change, an archive included.</span></li>
+      <li><code>/brain:forget S2</code><span>Stops a skill. A draft skill waits 3 days before it goes live.</span></li>
+    </ul>
+    <p class="note">When the model changes, each lesson about a mistake sits out its next 5 sessions. If
+      the mistake does not come back, the new model does not need the lesson, and brain archives it.</p>
+  </div>
+</section>
+
+<section id="privacy">
+  <div class="wrap split">
+    <div>
+      <div class="sec-head">
+        <div class="kicker">Privacy</div>
+        <h2>It stays on your machine.</h2>
+        <p>Prompts can hold client code and secrets. brain sends nothing anywhere.</p>
+      </div>
+      <ul class="checks">
+        <li><b>Signals, not output.</b> Tool output is never stored, so a fetched page cannot plant a lesson.</li>
+        <li><b>Scrubbed first.</b> Secrets, URLs, paths, hosts and project names become placeholders.</li>
+        <li><b>Yours alone.</b> <code>~/.claude/brain</code> is mode 700. In a cloud session the hooks do nothing.</li>
+      </ul>
+    </div>
+<pre class="logline"><span class="c"># ~/.claude/brain/lessons/L12.md, one file per lesson</span>
+---
+<span class="k">type</span>: "brain/lesson"
+<span class="k">description</span>: "Search with `rg`, not `grep -r`."
+<span class="k">kind</span>: "tool-habit"
+<span class="k">scope</span>: "global"
+<span class="k">status</span>: "draft"
+<span class="k">verified</span>: "process:holdout"
+---</pre>
+  </div>
+</section>
+
+<section id="requirements">
+  <div class="wrap">
+    <div class="sec-head">
+      <div class="kicker">Requirements</div>
+      <h2>Node, and that's it.</h2>
+    </div>
+    <ul class="cmds">
+      <li><code>Claude Code</code><span>CLI, desktop or IDE extension, with plugin support.</span></li>
+      <li><code>Node.js 22.13+</code><span>On the <code>PATH</code> that Claude Code's hooks see, for <code>node:sqlite</code>. No packages to install.</span></li>
+      <li><code>Windows</code><span>Git for Windows, so the hook runs in Git Bash.</span></li>
+    </ul>
+    <p class="note">Known gaps, such as a correction worded without "no" or "wrong", are listed in the
+      <a href="https://github.com/johantor/brain#known-gaps">README</a>.</p>
+  </div>
+</section>
+
+<section id="board">
+  <div class="wrap">
+    <div class="band">
+      <div>
+        <h2>See every session too?</h2>
+        <p>board shows every Claude Code session on your machine as a card: what needs you, what is
+          running, and what you closed today.</p>
+      </div>
+      <a class="btn primary" href="https://johantor.github.io/board/">Meet board</a>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <div class="flinks">
+      <a href="https://github.com/johantor/brain">GitHub</a>
+      <a href="https://github.com/johantor/brain/blob/main/README.md">Docs</a>
+      <a href="https://github.com/johantor/brain/releases">Releases</a>
+      <a href="https://johantor.github.io/plugins/">Marketplace</a>
+      <a href="https://johantor.github.io/crew/">crew</a>
+      <a href="https://johantor.github.io/board/">board</a>
+    </div>
+    <p class="fine">Apache-2.0. The plugin collects no data and sends nothing to the maintainers.</p>
+    <p class="fine">An independent project. Not affiliated with or endorsed by Anthropic.</p>
+  </div>
+</footer>
+
+<script>
+  document.getElementById('copy').addEventListener('click', function () {
+    const text = document.getElementById('cmd').innerText.replace(/^\$ /gm, '').trim();
+    const done = (ok) => {
+      if (!ok) {
+        // No clipboard access: select the commands so the platform's copy shortcut works.
+        const range = document.createRange();
+        range.selectNodeContents(document.getElementById('cmd'));
+        getSelection().removeAllRanges();
+        getSelection().addRange(range);
+      }
+      this.textContent = ok ? 'Copied' : 'Selected: copy with your shortcut';
+      setTimeout(() => { this.textContent = 'Copy commands'; }, 2400);
+    };
+    if (navigator.clipboard?.writeText) {
+      navigator.clipboard.writeText(text).then(() => done(true), () => done(false));
+    } else {
+      done(false);
+    }
+  });
+</script>
+
+</body>
+</html>
