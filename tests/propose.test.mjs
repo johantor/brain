@@ -81,7 +81,7 @@ test('store writes an OKF draft, indexes it and logs the change', (t) => {
   assert.equal(front.observed_with.model, 'opus');
   assert.match(fs.readFileSync(path.join(dir, 'lessons', 'index.md'), 'utf8'), /\[L1\]\(L1\.md\): Read the failing log/);
   assert.match(fs.readFileSync(path.join(dir, 'lessons', 'index.md'), 'utf8'), /okf_version: "0.2"/);
-  assert.match(fs.readFileSync(path.join(dir, 'changes.log'), 'utf8'), /L1 proposed draft global method-error/);
+  assert.match(fs.readFileSync(path.join(dir, 'changes.log'), 'utf8'), /L1 proposed: draft global method-error/);
   assert.equal(fs.statSync(lessonFile(1)).mode & 0o777, 0o600);
   assert.equal(db.prepare('SELECT status FROM lessons').get().status, 'draft');
 });

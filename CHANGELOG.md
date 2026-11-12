@@ -5,6 +5,13 @@ All notable changes to the `brain` plugin are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.0] - 2026-11-11
+
+### Added
+
+- `/brain:forget`, `/brain:pin` and `/brain:undo`; `learned.md` lists the global lessons (#14).
+- A one-line notice at session start lists the lesson changes since the last session (#14).
+
 ## [0.5.0] - 2026-11-11
 
 ### Added

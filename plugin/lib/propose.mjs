@@ -3,7 +3,7 @@
 // "Propose"). Phase 2 stores every accepted lesson as `draft`: nothing loads.
 import fs from 'node:fs';
 import { tx, openDb } from './db.mjs';
-import { KINDS, logChange, maxFileId, writeLesson } from './lessons.mjs';
+import { KINDS, maxFileId, recordChange, writeLesson } from './lessons.mjs';
 import { isMain } from './paths.mjs';
 import { projectRoot } from './ask.mjs';
 import { projectNames, scrub } from './scrub.mjs';
@@ -76,7 +76,7 @@ export function store(db, lesson, now = Date.now()) {
     const id = Math.max(db.prepare('SELECT coalesce(max(id), 0) AS m FROM lessons').get().m, maxFileId()) + 1;
     db.prepare(`INSERT INTO lessons (id, key, description, kind, scope, project, status, created)
       VALUES (?, ?, ?, ?, ?, ?, 'draft', ?)`).run(id, key, lesson.description, lesson.kind, lesson.scope, project, now);
-    logChange(`L${id} proposed draft ${lesson.scope} ${lesson.kind}: ${lesson.description}`, now);
+    recordChange(db, { lesson: id, action: 'proposed', now, note: `draft ${lesson.scope} ${lesson.kind}: ${lesson.description}` });
     // Last, so a failure before it leaves no file behind.
     writeLesson({
       id,

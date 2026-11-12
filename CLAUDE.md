@@ -54,9 +54,16 @@ Paths in *Map* and *Gotchas* are relative to `plugin/`, the directory users inst
 - `hooks/load.sh` and `lib/load.mjs`: a second `SessionStart` hook, in the foreground
   (`timeout: 5`), apart from the async capture, whose scan can take long. With `learn` on it opens
   `brain.db` read-only, prints the project's lessons, then global ones, newest first, non-
-  `deprecated`, within `BUDGET` (4,000 characters) as `additionalContext`, and rewrites
-  `learned.md` (every global lesson). Prints nothing when off or on any error, which goes to
-  `errors.log`.
+  `deprecated`, pinned (`stable`) first, within `BUDGET` (4,000 characters) as
+  `additionalContext`, plus a `systemMessage` for the user listing `changes` since the
+  `.noticed` file's mtime. Prints nothing when off or on any error, which goes to `errors.log`.
+- `lib/manage.mjs` and `commands/forget.md`, `pin.md`, `undo.md`: forget sets `deprecated`
+  (`retired: "vetoed"` in the file; the key still blocks re-learning), pin sets `stable` with
+  `verified: human:local`, undo restores the `before` of the latest `changes` row not undone (a
+  proposal undoes to a veto) and marks its own row undone. `writeLearned()` writes `learned.md`,
+  a read-only view of the global lessons; with `learn` on, the async `SessionStart` capture runs
+  it before its scan. Hand edits are overwritten: they would race between sessions and skip the
+  checks `propose.mjs` makes (#14).
 - `lib/capture.mjs`: `record(db, payload)` writes one hook payload in one transaction: it upserts
   the session (`cwd` and `started` first seen, `last` the latest) and adds one `events` row.
   Kinds: `prompt` (scrubbed text, at most 2000 characters), `tool_ok`, `tool_fail` (`code` from
@@ -75,7 +82,7 @@ Paths in *Map* and *Gotchas* are relative to `plugin/`, the directory users inst
   version, tokens_in, tokens_cached, tokens_out, interrupts), `events` (sid, ts, kind, tool, call,
   code, text), `queue` (sid, reason `end`|`no-end`, ts), `transcripts` (sid, sig: mtime and size
   of each file), `lessons` (id, key, description, kind, scope, project, status, created: an index
-  of the lesson files). View `denials`: a `permission` row with no later `tool_ok`/`tool_fail` of the same
+  of the lesson files), `changes` (id, ts, lesson, action, before as JSON, undone). View `denials`: a `permission` row with no later `tool_ok`/`tool_fail` of the same
   call. Retention: records 90 days, queue 7.
 - `lib/scan.mjs`: `scan(db)` reads `<config>/projects/*/<sid>.jsonl` and
   `<sid>/subagents/*.jsonl` whole, only when the signature changed, only within 90 days. Tokens

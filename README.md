@@ -79,6 +79,17 @@ win, and Claude cites a lesson's ID, such as (L12), when one changes what it doe
 `~/.claude/brain/learned.md` lists the global lessons; the `brain` skill lists all of them.
 `/brain:learn off` stops loading.
 
+You stay in charge of every lesson:
+
+| To | Do |
+|---|---|
+| Stop a lesson for good | `/brain:forget L12`, or say "forget that lesson" |
+| Keep a lesson, loaded first | `/brain:pin L12` |
+| Reverse brain's latest change | `/brain:undo` |
+
+A session starts with one line that lists what changed since the last one. Every change is also
+in `~/.claude/brain/changes.log`.
+
 ## How it works
 
 1. Hooks on 7 events run `hooks/capture.sh`, which hands the payload to Node. Node writes rows to
