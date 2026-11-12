@@ -113,7 +113,7 @@ export async function main() {
         // Marks a session that loaded lessons, so holdout scoring counts only those.
         // The lessons that fit this session's budget, so scoring never credits one that
         // was not shown. Same selection as load.mjs, against the same database.
-        const ids = typeof payload.cwd === 'string' ? select(db, projectRoot(payload.cwd), payload.session_id).chosen.map((l) => l.id) : [];
+        const ids = typeof payload.cwd === 'string' ? select(db, projectRoot(payload.cwd), payload.session_id, typeof payload.model === 'string' ? payload.model : '').chosen.map((l) => l.id) : [];
         db.prepare("INSERT INTO events (sid, ts, kind, text) VALUES (?, ?, 'loaded', ?)").run(payload.session_id, Date.now(), `,${ids.join(',')},`);
         writeLearned(db);
       }

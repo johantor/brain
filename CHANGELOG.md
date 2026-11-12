@@ -5,6 +5,13 @@ All notable changes to the `brain` plugin are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.0] - 2026-11-11
+
+### Added
+
+- brain retires lessons with no effect, project lessons idle for 90 days, and, after a 5-session
+  probe when the model changes, lessons the new model no longer needs (#16).
+
 ## [0.7.0] - 2026-11-11
 
 ### Added

@@ -3,6 +3,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
+import { lessonFile, parse } from './lessons.mjs';
 import { brainDir } from './paths.mjs';
 
 export const DAY = 86_400_000;
@@ -53,6 +54,20 @@ export function openDb(file = dbFile()) {
   const db = new DatabaseSync(file);
   db.exec('PRAGMA busy_timeout = 5000; PRAGMA journal_mode = WAL;');
   db.exec(SCHEMA);
+  // Columns added after the first release: CREATE TABLE IF NOT EXISTS skips an old table.
+  const cols = db.prepare('PRAGMA table_info(lessons)').all().map((c) => c.name);
+  if (!cols.includes('model')) {
+    db.exec('ALTER TABLE lessons ADD COLUMN model TEXT');
+    // The files already record the model each lesson was learned with.
+    for (const { id } of db.prepare('SELECT id FROM lessons').all()) {
+      try {
+        const model = parse(fs.readFileSync(lessonFile(id), 'utf8')).front.observed_with?.model;
+        if (typeof model === 'string') db.prepare('UPDATE lessons SET model = ? WHERE id = ?').run(model, id);
+      } catch {
+        // No readable file: the lesson stays without a model and is never probed.
+      }
+    }
+  }
   return db;
 }
 

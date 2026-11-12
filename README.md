@@ -92,6 +92,12 @@ compares how often things go wrong with and without it: from 10 sessions on each
 that cuts failures, denials and corrections by a fifth is marked confirmed. Ask "which lessons
 help?" to see the scores.
 
+brain retires lessons on its own, in code: one that makes no difference, a project lesson whose
+project has had no session for 90 days, and one a new model no longer needs. When the model
+changes, each lesson about a mistake sits out its next 5 sessions; if the mistake does not come
+back, the lesson is archived as fixed. Pinned lessons are never retired, and `/brain:undo`
+brings an archived one back.
+
 A session starts with one line that lists what changed since the last one. Every change is also
 in `~/.claude/brain/changes.log`.
 
@@ -149,7 +155,9 @@ Uninstalling leaves `~/.claude/brain`. Delete it to remove the records.
   read. It blocks the forms an injected rule takes (scripts, URLs, paths, commands with
   arguments), stores no other text from the session, and keeps every lesson a draft until phase 3.
 - Holdout compares all friction in a session, not the friction a lesson is about, so a lesson
-  that helps rarely needs many sessions before its score moves.
+  that helps rarely needs many sessions before its score moves. Scoring and probes are a rough
+  measure by design: further edge cases in them are accepted here rather than patched one by one
+  (#16).
 - The transcript format is not documented. A Claude Code update can break the scan; the hooks keep
   working.
 - Node prints that `node:sqlite` is experimental. The hook hides the warning; the API could
