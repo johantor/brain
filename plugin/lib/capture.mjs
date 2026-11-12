@@ -5,6 +5,8 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { openDb, tx } from './db.mjs';
+import { select } from './load.mjs';
+import { projectRoot } from './ask.mjs';
 import { readConfig } from './config.mjs';
 import { brainDir, isMain } from './paths.mjs';
 import { writeLearned } from './manage.mjs';
@@ -109,7 +111,10 @@ export async function main() {
       const learn = readConfig().learn;
       if (learn && typeof payload.session_id === 'string') {
         // Marks a session that loaded lessons, so holdout scoring counts only those.
-        db.prepare("INSERT INTO events (sid, ts, kind) VALUES (?, ?, 'loaded')").run(payload.session_id, Date.now());
+        // The lessons that fit this session's budget, so scoring never credits one that
+        // was not shown. Same selection as load.mjs, against the same database.
+        const ids = typeof payload.cwd === 'string' ? select(db, projectRoot(payload.cwd), payload.session_id, typeof payload.model === 'string' ? payload.model : '').chosen.map((l) => l.id) : [];
+        db.prepare("INSERT INTO events (sid, ts, kind, text) VALUES (?, ?, 'loaded', ?)").run(payload.session_id, Date.now(), `,${ids.join(',')},`);
         writeLearned(db);
       }
       // The scan also backfills every transcript on the first run after install.
