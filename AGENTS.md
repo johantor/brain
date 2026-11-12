@@ -18,6 +18,8 @@ applies here.
   (`brain.test.mjs`), and `release.test.sh` for the release scripts.
 - `scripts/`: repo tooling, never part of the plugin's behaviour: `check-changelog.sh` (the
   release gate) and `release-notes.sh` (used by `auto-release.yml`). Copies of board's.
+- `docs/`: the site on GitHub Pages. `style.css` is an exact copy of crew's `docs/style.css`;
+  a layout the page needs beyond it goes in a `brain.css`.
 - `.github/`: `workflows/` (CI and release), `skills/` (the repo's own skills, never shipped:
   `code-review`, the one rubric Copilot reads through `copilot-instructions.md`;
   `engineering-principles`, a copy of crew's; and `writing-style`), the PR and issue templates.

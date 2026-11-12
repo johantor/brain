@@ -17,6 +17,8 @@ claude plugin marketplace add johantor/plugins
 claude plugin install brain@johantor
 ```
 
+Site: <https://johantor.github.io/brain/>
+
 ## What it records
 
 | Signal | Source |
