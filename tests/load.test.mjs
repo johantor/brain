@@ -35,7 +35,7 @@ test('select stops at the budget and says how many were left out', () => {
   for (let i = 1; i <= 60; i++) lesson(db, i, { description: `${'Long lesson text that fills the budget quickly. '.repeat(3)}${i}` });
   const { chosen, left } = select(db, '/w/shop');
   assert.ok(chosen.length < 60 && left === 60 - chosen.length);
-  assert.ok(context(chosen, left).length <= BUDGET + 60);
+  assert.ok(context(chosen, left).length <= BUDGET, `${context(chosen, left).length} characters`);
   assert.match(context(chosen, left), /more lessons did not fit/);
 });
 

@@ -17,6 +17,14 @@ export function isMain(argv1, metaUrl) {
   }
 }
 
+// Writes a whole file or none: a temp file named for this process, then a rename. A
+// fixed temp name would let two hooks that run at once rename each other's file.
+export function writeAtomic(file, text) {
+  const tmp = `${file}.${process.pid}.tmp`;
+  fs.writeFileSync(tmp, text, { mode: 0o600 });
+  fs.renameSync(tmp, file);
+}
+
 export function brainDir() {
   return process.env.CLAUDE_BRAIN_DIR || path.join(os.homedir(), '.claude', 'brain');
 }

@@ -3,7 +3,7 @@
 // frontmatter are written as JSON, which is valid YAML, so no YAML parser is needed.
 import fs from 'node:fs';
 import path from 'node:path';
-import { brainDir } from './paths.mjs';
+import { brainDir, writeAtomic } from './paths.mjs';
 
 export const KINDS = ['preference', 'tool-habit', 'method-error', 'project-fact'];
 // The OKF root index lists every lesson, so a consumer sees what exists before opening files.
@@ -72,8 +72,7 @@ export function writeLesson(lesson, all) {
     fs.unlinkSync(tmp);
   }
   const index = path.join(lessonsDir(), 'index.md');
-  fs.writeFileSync(`${index}.tmp`, renderIndex(all), { mode: 0o600 });
-  fs.renameSync(`${index}.tmp`, index);
+  writeAtomic(index, renderIndex(all));
   return file;
 }
 
