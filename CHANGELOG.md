@@ -5,6 +5,13 @@ All notable changes to the `brain` plugin are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.0] - 2026-11-11
+
+### Added
+
+- `/brain:learn on` loads this project's lessons and the global ones at session start, within
+  about 1,000 tokens, and writes `~/.claude/brain/learned.md`; off by default (#13).
+
 ## [0.4.1] - 2026-11-11
 
 ### Changed

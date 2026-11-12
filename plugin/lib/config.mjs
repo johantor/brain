@@ -1,10 +1,12 @@
-// `node config.mjs reflect on|off`: brain's settings, in <brain dir>/config.json.
-// Shadow reflection spends the session's tokens, so it starts off (#4).
+// `node config.mjs reflect|learn [on|off]`: brain's settings, in <brain dir>/config.json.
+// Both start off: reflection spends the session's tokens (#4), and learning loads
+// lessons into every session (#5).
 import fs from 'node:fs';
 import path from 'node:path';
 import { brainDir, isMain } from './paths.mjs';
 
-const DEFAULTS = { reflect: false };
+const DEFAULTS = { reflect: false, learn: false };
+const LABELS = { reflect: 'shadow reflection', learn: 'loading lessons' };
 
 const file = () => path.join(brainDir(), 'config.json');
 
@@ -18,17 +20,17 @@ export function readConfig() {
 
 export function main(argv = process.argv.slice(2)) {
   const [key, value] = argv;
-  if (key !== 'reflect' || (value !== undefined && !['on', 'off'].includes(value))) {
-    console.error('usage: config.mjs reflect [on|off]');
+  if (!(key in DEFAULTS) || (value !== undefined && !['on', 'off'].includes(value))) {
+    console.error('usage: config.mjs reflect|learn [on|off]');
     return 2;
   }
   const config = readConfig();
   if (value) {
-    config.reflect = value === 'on';
+    config[key] = value === 'on';
     fs.mkdirSync(brainDir(), { recursive: true, mode: 0o700 });
     fs.writeFileSync(file(), `${JSON.stringify(config, null, 2)}\n`, { mode: 0o600 });
   }
-  console.log(`brain: shadow reflection is ${config.reflect ? 'on' : 'off'}`);
+  console.log(`brain: ${LABELS[key]} is ${config[key] ? 'on' : 'off'}`);
   return 0;
 }
 

@@ -25,7 +25,8 @@ without the hook payload.
 ## Data that leaves your machine
 
 None, from the plugin. It makes no network requests, and in a Claude Code cloud session it records
-nothing. Claude Code itself sends your prompts to Anthropic, under
+nothing. With loading on (`/brain:learn on`), the lessons for the current project become part of
+the session's context, so Claude Code sends them to Anthropic like the rest of that session. Claude Code itself sends your prompts to Anthropic, under
 [Anthropic's Privacy Policy](https://www.anthropic.com/legal/privacy), with or without this plugin.
 
 ## Third parties
