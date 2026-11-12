@@ -3,7 +3,7 @@
 // frontmatter are written as JSON, which is valid YAML, so no YAML parser is needed.
 import fs from 'node:fs';
 import path from 'node:path';
-import { brainDir } from './paths.mjs';
+import { brainDir, writeAtomic } from './paths.mjs';
 
 export const KINDS = ['preference', 'tool-habit', 'method-error', 'project-fact'];
 // The OKF root index lists every lesson, so a consumer sees what exists before opening files.
@@ -72,8 +72,7 @@ export function writeLesson(lesson, all) {
     fs.unlinkSync(tmp);
   }
   const index = path.join(lessonsDir(), 'index.md');
-  fs.writeFileSync(`${index}.tmp`, renderIndex(all), { mode: 0o600 });
-  fs.renameSync(`${index}.tmp`, index);
+  writeAtomic(index, renderIndex(all));
   return file;
 }
 
@@ -81,8 +80,7 @@ export function writeLesson(lesson, all) {
 export function writeIndex(db) {
   const index = path.join(lessonsDir(), 'index.md');
   fs.mkdirSync(lessonsDir(), { recursive: true, mode: 0o700 });
-  fs.writeFileSync(`${index}.tmp`, renderIndex(db.prepare('SELECT id, description FROM lessons ORDER BY id').all()), { mode: 0o600 });
-  fs.renameSync(`${index}.tmp`, index);
+  writeAtomic(index, renderIndex(db.prepare('SELECT id, description FROM lessons ORDER BY id').all()));
 }
 
 // Changes fields of an existing lesson file in place. A missing file is left missing:
@@ -94,8 +92,7 @@ export function updateLessonFile(id, patch) {
   const next = { ...front, ...patch };
   const lines = Object.entries(next).filter(([, v]) => v !== undefined).map(([k, v]) => `${k}: ${JSON.stringify(v)}`);
   const body = `Drafted by brain from ${(next.sources ?? []).length} session(s); see \`sources\`.`;
-  fs.writeFileSync(`${file}.tmp`, `---\n${lines.join('\n')}\n---\n\n${body}\n`, { mode: 0o600 });
-  fs.renameSync(`${file}.tmp`, file);
+  writeAtomic(file, `---\n${lines.join('\n')}\n---\n\n${body}\n`);
 }
 
 // One change: a row for undo, and a line in changes.log for the user to read.

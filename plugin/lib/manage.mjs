@@ -6,7 +6,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { openDb, tx } from './db.mjs';
 import { recordChange, updateLessonFile, writeIndex } from './lessons.mjs';
-import { brainDir, isMain } from './paths.mjs';
+import { brainDir, isMain, writeAtomic } from './paths.mjs';
 import { scrub } from './scrub.mjs';
 
 const lessonRow = (db, id) => db.prepare('SELECT id, status, description FROM lessons WHERE id = ?').get(id);
@@ -90,11 +90,9 @@ export function writeLearned(db) {
   const body = rows.length ? rows.map((l) => `- L${l.id} (${l.kind}): ${l.description}`).join('\n') : '(none yet)';
   const head = '# Lessons brain loads in every project\n\nDelete a line to make brain forget that lesson; edit one to pin your wording.\n';
   const file = path.join(brainDir(), 'learned.md');
-  fs.writeFileSync(`${file}.tmp`, `${head}\n${body}\n`, { mode: 0o600 });
-  fs.renameSync(`${file}.tmp`, file);
+  writeAtomic(file, `${head}\n${body}\n`);
   const sidecar = path.join(brainDir(), '.learned.json');
-  fs.writeFileSync(`${sidecar}.tmp`, JSON.stringify(Object.fromEntries(rows.map((l) => [l.id, l.description]))), { mode: 0o600 });
-  fs.renameSync(`${sidecar}.tmp`, sidecar);
+  writeAtomic(sidecar, JSON.stringify(Object.fromEntries(rows.map((l) => [l.id, l.description]))));
 }
 
 export function main(argv = process.argv.slice(2)) {
