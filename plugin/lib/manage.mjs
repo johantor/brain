@@ -12,12 +12,15 @@ import { scrub } from './scrub.mjs';
 const lessonRow = (db, id) => db.prepare('SELECT id, status, description FROM lessons WHERE id = ?').get(id);
 const human = (now) => [{ by: 'human:local', at: new Date(now).toISOString() }];
 
-function setLesson(db, id, { status, description }, now) {
+// `model` comes back only from undoing a probe's `kept`, which changed it.
+function setLesson(db, id, { status, description, model }, now) {
   if (description !== undefined) db.prepare('UPDATE lessons SET description = ? WHERE id = ?').run(description, id);
+  if (model !== undefined) db.prepare('UPDATE lessons SET model = ? WHERE id = ?').run(model, id);
   db.prepare('UPDATE lessons SET status = ? WHERE id = ?').run(status, id);
   updateLessonFile(id, {
     status,
     ...(description !== undefined && { description }),
+    ...(model !== undefined && { observed_with: { model } }),
     verified: status === 'stable' ? human(now) : undefined,
     retired: status === 'deprecated' ? 'vetoed' : undefined,
   });
