@@ -9,6 +9,7 @@ import { DAY, openDb } from '../plugin/lib/db.mjs';
 import { lessonFile, parse } from '../plugin/lib/lessons.mjs';
 import { select } from '../plugin/lib/load.mjs';
 import { check, store } from '../plugin/lib/propose.mjs';
+import { undo } from '../plugin/lib/manage.mjs';
 import { HOLDOUT, IDLE_DAYS, MIN_SESSIONS, PROBE_SESSIONS, held, probing, scoreAll, scoreLesson } from '../plugin/lib/score.mjs';
 
 const NOW = Date.parse('2026-11-11T12:00:00Z');
@@ -41,6 +42,7 @@ function setup(t, { n = 40, withIt = 0, without = 2, model } = {}) {
     for (let f = 0; f < (held(sid, lesson, model) ? without : withIt); f++) {
       hook({ hook_event_name: 'PostToolUseFailure', tool_name: 'Bash', tool_input: { command: `npm test ${f}` }, error: 'Exit code 1' });
     }
+    hook({ hook_event_name: 'SessionEnd' });
   }
   return { db, lesson };
 }
@@ -85,14 +87,15 @@ test('a lesson with no effect is archived, and a pinned one is never touched', (
 });
 
 // Adds `k` probe sessions under `model`, each with `fails` failures.
-function probeSessions(db, k, model, fails) {
-  let t0 = NOW + 5e5;
+function probeSessions(db, k, model, fails, start = NOW + 5e5, prefix = 'p') {
+  let t0 = start;
   for (let i = 0; i < k; i++) {
-    const hook = (p) => record(db, { session_id: `p${i}`, cwd: '/w/shop', ...p }, (t0 += 10));
+    const hook = (p) => record(db, { session_id: `${prefix}${i}`, cwd: '/w/shop', ...p }, (t0 += 10));
     hook({ hook_event_name: 'SessionStart', model });
-    db.prepare("INSERT INTO events (sid, ts, kind) VALUES (?, ?, 'loaded')").run(`p${i}`, t0);
+    db.prepare("INSERT INTO events (sid, ts, kind) VALUES (?, ?, 'loaded')").run(`${prefix}${i}`, t0);
     hook({ hook_event_name: 'UserPromptSubmit', prompt: 'go' });
     for (let f = 0; f < fails; f++) hook({ hook_event_name: 'PostToolUseFailure', tool_name: 'Bash', tool_input: { command: `x ${f}` }, error: 'Exit code 1' });
+    hook({ hook_event_name: 'SessionEnd' });
   }
 }
 
@@ -128,4 +131,44 @@ test('a project lesson is archived when its project has had no session for 90 da
   scoreAll(db, later);
   assert.equal(retiredOf(2), 'project idle');
   assert.equal(statusOf(db, 1), 'draft', 'a global lesson is not tied to a project');
+});
+
+test('a session that just started, with no prompt or end yet, is not scored', (t) => {
+  const { db, lesson } = setup(t, { n: 0, model: 'opus-5' });
+  probeSessions(db, PROBE_SESSIONS - 1, 'opus-6', 1);
+  record(db, { session_id: 'now', cwd: '/w/shop', hook_event_name: 'SessionStart', model: 'opus-6' }, NOW + 9e5);
+  db.prepare("INSERT INTO events (sid, ts, kind) VALUES ('now', ?, 'loaded')").run(NOW + 9e5);
+  assert.equal(scoreLesson(db, lesson, NOW + 9e5 + 1).probe.rates.length, PROBE_SESSIONS - 1);
+});
+
+test('a probe counts only the newest model, with five of its own sessions', (t) => {
+  const { db, lesson } = setup(t, { n: 0, model: 'opus-5' });
+  probeSessions(db, 3, 'opus-6', 0, NOW + 5e5, 'b');
+  probeSessions(db, 2, 'opus-7', 2, NOW + 6e5, 'c');
+  const s = scoreLesson(db, lesson, NOW + 1e6);
+  assert.equal(s.probe.model, 'opus-7');
+  assert.equal(s.probe.rates.length, 2);
+});
+
+test('undoing a kept probe restores the earlier model, not a veto', (t) => {
+  const { db } = setup(t, { model: 'opus-5', withIt: 1, without: 3 });
+  probeSessions(db, PROBE_SESSIONS, 'opus-6', 4);
+  scoreAll(db, NOW + 1e6);
+  undo(db, NOW + 1e6 + 1);
+  assert.deepEqual({ ...db.prepare('SELECT status, model FROM lessons WHERE id = 1').get() }, { status: 'draft', model: 'opus-5' });
+});
+
+test('the model column is filled from the lesson files on upgrade, and load reads an old schema', (t) => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'brain-migrate-'));
+  process.env.CLAUDE_BRAIN_DIR = dir;
+  t.after(() => delete process.env.CLAUDE_BRAIN_DIR);
+  const file = path.join(dir, 'brain.db');
+  let db = openDb(file);
+  record(db, { session_id: 'seed', cwd: '/w/shop', hook_event_name: 'SessionStart', model: 'opus-5' }, NOW);
+  store(db, check({ kind: 'method-error', sessions: ['seed'], description: 'Read the failing log before you guess a cause of the failure.' }, { cwd: '/w/shop' }).lesson, NOW);
+  db.exec('ALTER TABLE lessons DROP COLUMN model');
+  assert.equal(select(db, '/w/shop', 'x', 'opus-6').chosen.length + select(db, '/w/shop', 'y', 'opus-6').chosen.length > 0, true, 'old schema still loads');
+  db.close();
+  db = openDb(file);
+  assert.equal(db.prepare('SELECT model FROM lessons WHERE id = 1').get().model, 'opus-5');
 });

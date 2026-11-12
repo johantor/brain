@@ -25,7 +25,9 @@ const line = (l) => `- L${l.id} (${l.kind}): ${l.description}`;
 // first in each, until the budget is spent. A lesson held out for this session is left
 // out, so holdout scoring can compare (score.mjs).
 export function select(db, root, sid = '', model = '') {
-  const rows = db.prepare(`SELECT id, kind, scope, status, model, description FROM lessons
+  // The foreground loader may run before the async capture has migrated an old database.
+  const modelCol = db.prepare('PRAGMA table_info(lessons)').all().some((c) => c.name === 'model') ? 'model' : 'NULL AS model';
+  const rows = db.prepare(`SELECT id, kind, scope, status, ${modelCol}, description FROM lessons
     WHERE status != 'deprecated' AND (scope = 'global' OR project = ?)
     ORDER BY status = 'stable' DESC, scope = 'project' DESC, created DESC, id DESC`).all(root)
     .filter((r) => !sid || !held(sid, r, model));
