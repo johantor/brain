@@ -40,10 +40,10 @@ const mean = (xs) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : nu
 // Only finished sessions with a prompt count: one that just started has no friction yet,
 // and would pull every rate toward zero (scoring runs at SessionStart).
 export function scoreLesson(db, lesson, now = Date.now()) {
-  const sessions = db.prepare(`SELECT s.sid, s.cwd, s.model, s.started FROM sessions s
+  const sessions = db.prepare(`SELECT s.sid, s.cwd, s.model, s.started, e.text AS ids FROM sessions s
+    JOIN events e ON e.sid = s.sid AND e.kind = 'loaded'
     WHERE s.started >= ? AND (s.ended IS NOT NULL OR s.last < ?)
-      AND EXISTS (SELECT 1 FROM events e WHERE e.sid = s.sid AND e.kind = 'loaded')
-      AND EXISTS (SELECT 1 FROM events e WHERE e.sid = s.sid AND e.kind = 'prompt')
+      AND EXISTS (SELECT 1 FROM events p WHERE p.sid = s.sid AND p.kind = 'prompt')
     ORDER BY s.started`).all(lesson.created, now - IDLE_MS);
   // After a probe kept the lesson under a new model, only later sessions count: the probe
   // sessions loaded nothing, and earlier ones ran another model.
@@ -58,7 +58,10 @@ export function scoreLesson(db, lesson, now = Date.now()) {
       probe.push({ rate: rate(db, s.sid), model: s.model });
       continue;
     }
-    (held(s.sid, lesson, s.model) ? without : withIt).push(rate(db, s.sid));
+    // Loaded: the session's list holds it. Held: the hash held it out. A lesson that did
+    // not fit the budget is neither, and that session does not count.
+    if (s.ids?.includes(`,${lesson.id},`)) withIt.push(rate(db, s.sid));
+    else if (held(s.sid, lesson, s.model)) without.push(rate(db, s.sid));
   }
   const loaded = mean(withIt);
   const heldOut = mean(without);
@@ -108,14 +111,16 @@ export function scoreAll(db, now = Date.now()) {
   for (const l of lessons) {
     const s = scoreLesson(db, l, now);
     tx(db, () => {
-      const was = db.prepare('SELECT verdict FROM scores WHERE lesson = ?').get(l.id)?.verdict;
       db.prepare(`INSERT INTO scores (lesson, loaded_n, held_n, loaded_rate, held_rate, verdict, ts) VALUES (?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(lesson) DO UPDATE SET loaded_n = excluded.loaded_n, held_n = excluded.held_n, loaded_rate = excluded.loaded_rate,
           held_rate = excluded.held_rate, verdict = excluded.verdict, ts = excluded.ts`)
         .run(l.id, s.loadedN, s.heldN, s.loaded, s.heldOut, s.verdict, now);
-      if (s.verdict === 'helps' && was !== 'helps' && l.status === 'draft') {
+      // Once per lesson: the history, not the last verdict, says whether it was confirmed.
+      const confirmed = db.prepare("SELECT 1 FROM changes WHERE lesson = ? AND action = 'confirmed' AND undone = 0").get(l.id);
+      if (s.verdict === 'helps' && !confirmed && l.status === 'draft') {
         updateLessonFile(l.id, { verified: [{ by: 'process:holdout', at: new Date(now).toISOString() }] });
-        recordChange(db, { lesson: l.id, action: 'confirmed', now, note: `holdout: ${s.loadedN} sessions with it, ${s.heldN} without` });
+        // `before` lets undo remove the confirmation without vetoing the draft.
+        recordChange(db, { lesson: l.id, action: 'confirmed', before: { status: l.status }, now, note: `holdout: ${s.loadedN} sessions with it, ${s.heldN} without` });
       }
       retire(db, l, s, now);
     });
