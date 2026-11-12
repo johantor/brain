@@ -9,6 +9,7 @@ import { openDb } from '../plugin/lib/db.mjs';
 import { lessonFile, parse } from '../plugin/lib/lessons.mjs';
 import { select } from '../plugin/lib/load.mjs';
 import { check, store } from '../plugin/lib/propose.mjs';
+import { undo } from '../plugin/lib/manage.mjs';
 import { HOLDOUT, MIN_SESSIONS, held, scoreAll, scoreLesson } from '../plugin/lib/score.mjs';
 
 const NOW = Date.parse('2026-11-11T12:00:00Z');
@@ -23,7 +24,7 @@ test('about 30% of sessions hold a draft out, the same ones every time; a pinned
 
 // A database in CLAUDE_BRAIN_DIR with one global draft L1 and `n` scored sessions. A
 // session that loads L1 gets `withIt` failures, one that holds it out `without`.
-function setup(t, { n = 40, withIt = 0, without = 2 } = {}) {
+function setup(t, { n = 40, withIt = 0, without = 2, fits = true } = {}) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'brain-score-'));
   process.env.CLAUDE_BRAIN_DIR = dir;
   t.after(() => delete process.env.CLAUDE_BRAIN_DIR);
@@ -36,7 +37,8 @@ function setup(t, { n = 40, withIt = 0, without = 2 } = {}) {
     const sid = `x${i}`;
     const hook = (p) => record(db, { session_id: sid, cwd: '/w/shop', ...p }, (t0 += 10));
     hook({ hook_event_name: 'SessionStart' });
-    db.prepare("INSERT INTO events (sid, ts, kind) VALUES (?, ?, 'loaded')").run(sid, t0);
+    // The ids load.mjs would show: none when held out, or when the lesson did not fit.
+    db.prepare("INSERT INTO events (sid, ts, kind, text) VALUES (?, ?, 'loaded', ?)").run(sid, t0, held(sid, lesson) || !fits ? ',,' : ',1,');
     hook({ hook_event_name: 'UserPromptSubmit', prompt: 'add a cart' });
     for (let f = 0; f < (held(sid, lesson) ? without : withIt); f++) {
       hook({ hook_event_name: 'PostToolUseFailure', tool_name: 'Bash', tool_input: { command: `npm test ${f}` }, error: 'Exit code 1' });
@@ -68,4 +70,27 @@ test('load leaves a lesson out of the sessions that hold it', (t) => {
   const sids = Array.from({ length: 50 }, (_, i) => `y${i}`);
   const loadedIn = sids.filter((s) => select(db, '/w/shop', s).chosen.length === 1).length;
   assert.equal(loadedIn, sids.filter((s) => !held(s, { id: 1, status: 'draft' })).length);
+});
+
+test('a lesson that never fit the budget is never credited', (t) => {
+  const { db, lesson } = setup(t, { fits: false });
+  const s = scoreLesson(db, lesson);
+  assert.equal(s.loadedN, 0);
+  assert.equal(s.verdict, 'too few');
+});
+
+test('a lesson is confirmed once, even when its verdict comes and goes', (t) => {
+  const { db } = setup(t);
+  scoreAll(db, NOW + 1e6);
+  db.prepare("UPDATE scores SET verdict = 'no effect'").run();
+  scoreAll(db, NOW + 2e6);
+  assert.equal(db.prepare("SELECT count(*) AS n FROM changes WHERE action = 'confirmed'").get().n, 1);
+});
+
+test('undoing a confirmation keeps the draft and drops the verification', (t) => {
+  const { db } = setup(t);
+  scoreAll(db, NOW + 1e6);
+  undo(db, NOW + 1e6 + 1);
+  assert.equal(db.prepare('SELECT status FROM lessons WHERE id = 1').get().status, 'draft');
+  assert.equal(parse(fs.readFileSync(lessonFile(1), 'utf8')).front.verified, undefined);
 });

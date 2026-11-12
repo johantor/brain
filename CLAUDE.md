@@ -59,11 +59,13 @@ Paths in *Map* and *Gotchas* are relative to `plugin/`, the directory users inst
   `.noticed` file's mtime. Prints nothing when off or on any error, which goes to `errors.log`.
 - `lib/score.mjs`: holdout. `held(sid, lesson)` is a hash of both, true for about 30% of
   sessions, never for a pinned lesson; `load.mjs` leaves held lessons out. With `learn` on, the
-  async `SessionStart` capture adds a `loaded` event row, and after the scan `scoreAll()` compares
-  friction per prompt (`reflect.friction`) between sessions that loaded and held each lesson:
-  sessions with a `loaded` row, started after the lesson, in its scope. `MIN_SESSIONS` (10) on
-  each side, then `helps` (20% lower), `no effect` (not lower) or `unclear`. `helps` adds
-  `verified: process:holdout` to a draft's file and a `confirmed` change, once.
+  async `SessionStart` capture adds a `loaded` event row whose `text` lists the ids
+  `load.select()` chose (`,1,4,`), and after the scan `scoreAll()` compares friction per prompt
+  (`reflect.friction`) between sessions that loaded each lesson and sessions that held it out; a
+  session where it did not fit the budget counts for neither. Sessions started after the lesson,
+  in its scope. `MIN_SESSIONS` (10) on each side, then `helps` (20% lower), `no effect` (not
+  lower) or `unclear`. `helps` adds `verified: process:holdout` to a draft's file and a
+  `confirmed` change (with `before`, so undo keeps the draft), once per lesson by its history.
 - `lib/manage.mjs` and `commands/forget.md`, `pin.md`, `undo.md`: forget sets `deprecated`
   (`retired: "vetoed"` in the file; the key still blocks re-learning), pin sets `stable` with
   `verified: human:local`, undo restores the `before` of the latest `changes` row not undone (a
