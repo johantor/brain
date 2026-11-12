@@ -35,7 +35,7 @@ test('select stops at the budget and says how many were left out', () => {
   for (let i = 1; i <= 60; i++) lesson(db, i, { description: `${'Long lesson text that fills the budget quickly. '.repeat(3)}${i}` });
   const { chosen, left } = select(db, '/w/shop');
   assert.ok(chosen.length < 60 && left === 60 - chosen.length);
-  assert.ok(context(chosen, left).length <= BUDGET + 60);
+  assert.ok(context(chosen, left).length <= BUDGET, `${context(chosen, left).length} characters`);
   assert.match(context(chosen, left), /more lessons did not fit/);
 });
 
@@ -59,4 +59,12 @@ test('main prints nothing while learning is off, and the lessons once it is on',
   assert.match(ctx.additionalContext, /L1 \(method-error\)/);
   main('not json');
   assert.equal(out.length, 1);
+});
+
+test('the context, overflow line included, never passes the budget', () => {
+  const db = openDb(path.join(tmp(), 'brain.db'));
+  for (let i = 1; i <= 13; i++) lesson(db, i, { description: `${'x'.repeat(290)}${String(i).padStart(7, '0')}` });
+  const { chosen, left } = select(db, '/w/shop');
+  assert.ok(left > 0);
+  assert.ok(context(chosen, left).length <= BUDGET, `${context(chosen, left).length} characters`);
 });
