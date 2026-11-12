@@ -101,7 +101,7 @@ export function recordChange(db, { lesson, action, before = null, now = Date.now
   logChange(`L${lesson} ${action}${note ? `: ${note}` : ''}`, now);
 }
 
-// Every change to a lesson, one scrubbed line each, for review and phase 3's undo.
+// Every change to a lesson, one scrubbed line each, for the user to review.
 export function logChange(line, now = Date.now()) {
   fs.mkdirSync(brainDir(), { recursive: true, mode: 0o700 });
   fs.appendFileSync(path.join(brainDir(), 'changes.log'), `${new Date(now).toISOString()} ${line}\n`, { mode: 0o600 });

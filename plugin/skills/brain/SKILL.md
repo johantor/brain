@@ -29,11 +29,8 @@ belong to different clients.
 | `my_events` (`events`) | `sid`, `ts`, `kind`, `tool`, `call`, `code`, `text` |
 | `my_denials` (`denials`) | permission rows whose call never ran |
 | `my_queue` (`queue`) | `sid`, `reason` (`end`, `no-end`), `ts` |
-| `my_lessons` (`lessons`) | `id` (shown as `L<id>`), `description`, `kind`, `scope` (`global`, `project`), `project`, `status` (`draft` = a candidate, not loaded), `created`. `my_lessons` holds global lessons and this project's. |
+| `my_lessons` (`lessons`) | `id` (shown as `L<id>`), `description`, `kind`, `scope` (`global`, `project`), `project`, `status` (`draft` and `stable` load when loading is on; `stable` is pinned; `deprecated` is forgotten or archived), `created`. `my_lessons` holds global lessons and this project's. |
 
-- `scores` (no view; every row is a lesson's): `lesson`, `loaded_n` and `held_n` (sessions with
-  and without it), `loaded_rate` and `held_rate` (friction per prompt), `verdict` (`helps`,
-  `no effect`, `unclear`, `too few`).
 - Times are milliseconds since the epoch: `datetime(ts / 1000, 'unixepoch')`.
 - `kind` is `prompt` (`text` = the user's prompt, scrubbed), `tool_ok`, `tool_fail` (`code` =
   exit code, `text` = the Bash program), or `permission`. `call` groups rows of one tool call.

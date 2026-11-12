@@ -5,6 +5,19 @@ All notable changes to the `brain` plugin are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.11.0] - 2026-11-12
+
+### Removed
+
+- Holdout scoring, the model-change probe, and automatic archiving as `no effect` or `fixed`.
+  A simulation showed the per-session comparison is mostly noise; every lesson now loads, and
+  you forget or pin it.
+
+### Fixed
+
+- The reflect skill, `/brain:shadow`, `/brain:undo` and the `brain` skill no longer say that
+  nothing loads drafts.
+
 ## [0.10.1] - 2026-11-12
 
 ### Fixed

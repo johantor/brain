@@ -9,8 +9,8 @@ work out what went wrong, and make the next session better, with no `/learn` ste
 [#3](https://github.com/johantor/brain/issues/3).
 
 brain records the signals, answers questions about them, drafts lessons in shadow mode, and can
-load them into each session, where it scores them, retires the ones that do not help, and turns
-lessons on one tool into a skill. Drafting and loading both start off.
+load them into each session, where you keep, pin or forget each one, and it turns lessons on one
+tool into a skill. Drafting and loading both start off.
 
 ```bash
 claude plugin marketplace add johantor/plugins
@@ -89,16 +89,9 @@ You stay in charge of every lesson:
 | Keep a lesson, loaded first | `/brain:pin L12` |
 | Reverse brain's latest change | `/brain:undo` |
 
-Each lesson you have not pinned sits out about 30% of the sessions it would load in. brain
-compares how often things go wrong with and without it: from 10 sessions on each side, a lesson
-that cuts failures, denials and corrections by a fifth is marked confirmed. Ask "which lessons
-help?" to see the scores.
-
-brain retires lessons on its own, in code: one that makes no difference, a project lesson whose
-project has had no session for 90 days, and one a new model no longer needs. When the model
-changes, each lesson about a mistake sits out its next 5 sessions; if the mistake does not come
-back, the lesson is archived as fixed. Pinned lessons are never retired, and `/brain:undo`
-brings an archived one back.
+Every lesson loads in every session it applies to. brain retires one on its own only when it is a
+project lesson whose project has had no session for 90 days; a pinned lesson never, and
+`/brain:undo` brings an archived one back.
 
 Ask "what should go in my global CLAUDE.md?" and brain lists the auto-memory entries that Claude
 Code keeps in two or more of your projects. It suggests them; it never edits `CLAUDE.md` or auto
@@ -166,10 +159,9 @@ Uninstalling leaves `~/.claude/brain`. Delete it to remove the records.
   read. It blocks the forms an injected rule takes (scripts, URLs, paths, commands with
   arguments) and stores no other text from the session. A draft loads only once you turn loading
   on, and the line at each session start lists new drafts.
-- Holdout compares all friction in a session, not the friction a lesson is about, so a lesson
-  that helps rarely needs many sessions before its score moves. Scoring and probes are a rough
-  measure by design: further edge cases in them are accepted here rather than patched one by one
-  (#16).
+- brain does not measure whether a lesson helps. One lesson fixes one kind of mistake, which
+  barely moves a session's total friction, so a with-and-without comparison judged noise: you
+  decide with `/brain:forget` and `/brain:pin`.
 - Lessons are grouped into a skill by the tool their code spans name, not by subject. A skill
   that does not trigger is retired after 30 days; brain does not rewrite its description, and it
   does not draft repo skills for colleagues.

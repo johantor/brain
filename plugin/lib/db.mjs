@@ -3,7 +3,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
-import { lessonFile, parse } from './lessons.mjs';
 import { brainDir } from './paths.mjs';
 
 export const DAY = 86_400_000;
@@ -25,10 +24,6 @@ CREATE TABLE IF NOT EXISTS transcripts (sid TEXT PRIMARY KEY, sig TEXT NOT NULL)
 CREATE TABLE IF NOT EXISTS lessons (
   id INTEGER PRIMARY KEY AUTOINCREMENT, key TEXT NOT NULL UNIQUE, description TEXT NOT NULL,
   kind TEXT NOT NULL, scope TEXT NOT NULL, project TEXT, status TEXT NOT NULL, created INTEGER NOT NULL);
--- Holdout results per lesson: friction per prompt with and without it.
-CREATE TABLE IF NOT EXISTS scores (
-  lesson INTEGER PRIMARY KEY, loaded_n INTEGER, held_n INTEGER, loaded_rate REAL, held_rate REAL,
-  verdict TEXT, ts INTEGER);
 -- brain-<name> skills: pending (in the veto window), active (installed) or retired.
 -- \`lessons\` lists the source lessons (,1,4,), so forgetting one stops the skill.
 CREATE TABLE IF NOT EXISTS skills (
@@ -59,20 +54,6 @@ export function openDb(file = dbFile()) {
   const db = new DatabaseSync(file);
   db.exec('PRAGMA busy_timeout = 5000; PRAGMA journal_mode = WAL;');
   db.exec(SCHEMA);
-  // Columns added after the first release: CREATE TABLE IF NOT EXISTS skips an old table.
-  const cols = db.prepare('PRAGMA table_info(lessons)').all().map((c) => c.name);
-  if (!cols.includes('model')) {
-    db.exec('ALTER TABLE lessons ADD COLUMN model TEXT');
-    // The files already record the model each lesson was learned with.
-    for (const { id } of db.prepare('SELECT id FROM lessons').all()) {
-      try {
-        const model = parse(fs.readFileSync(lessonFile(id), 'utf8')).front.observed_with?.model;
-        if (typeof model === 'string') db.prepare('UPDATE lessons SET model = ? WHERE id = ?').run(model, id);
-      } catch {
-        // No readable file: the lesson stays without a model and is never probed.
-      }
-    }
-  }
   return db;
 }
 
