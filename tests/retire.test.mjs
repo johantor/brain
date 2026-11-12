@@ -41,6 +41,19 @@ test('a recent session in the project, or a pin, keeps a project lesson', (t) =>
   record(db, { session_id: 'recent', cwd: '/w/shop', hook_event_name: 'SessionStart' }, later - DAY);
   retireIdle(db, later);
   assert.equal(statusOf(db, 2), 'draft');
+  // A session that lands after the candidates were listed, and before the archive.
+  const raced = setup(t);
+  const real = raced.prepare.bind(raced);
+  let once = false;
+  raced.prepare = (sql) => {
+    if (!once && sql.startsWith('SELECT id, status, project')) {
+      once = true;
+      real("INSERT INTO sessions (sid, cwd, started, last) VALUES ('late', '/w/shop', ?, ?)").run(later - DAY, later - DAY);
+    }
+    return real(sql);
+  };
+  retireIdle(raced, later);
+  assert.equal(statusOf(raced, 2), 'draft', 'activity committed meanwhile keeps the lesson');
   const pinned = setup(t);
   pinned.prepare("UPDATE lessons SET status = 'stable' WHERE id = 2").run();
   retireIdle(pinned, later);

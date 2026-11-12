@@ -10,13 +10,15 @@ export const IDLE_DAYS = 90;
 
 export function retireIdle(db, now = Date.now()) {
   const since = now - IDLE_DAYS * DAY;
-  const live = new Set(db.prepare('SELECT DISTINCT cwd FROM sessions WHERE last >= ? AND cwd IS NOT NULL').all(since).map((r) => projectRoot(r.cwd)));
+  const recent = db.prepare('SELECT DISTINCT cwd FROM sessions WHERE last >= ? AND cwd IS NOT NULL');
   const candidates = db.prepare("SELECT id FROM lessons WHERE scope = 'project' AND status NOT IN ('deprecated', 'stable') AND created < ?").all(since);
   for (const { id } of candidates) {
-    // Reread inside the lock: a lesson pinned or forgotten meanwhile is left alone.
+    // Lesson and activity are read inside the lock: a pin, a forget or a session committed
+    // meanwhile keeps the lesson.
     tx(db, () => {
       const l = db.prepare('SELECT id, status, project FROM lessons WHERE id = ?').get(id);
-      if (!l || l.status === 'deprecated' || l.status === 'stable' || live.has(l.project)) return;
+      if (!l || l.status === 'deprecated' || l.status === 'stable') return;
+      if (recent.all(since).some((r) => projectRoot(r.cwd) === l.project)) return;
       db.prepare("UPDATE lessons SET status = 'deprecated' WHERE id = ?").run(l.id);
       updateLessonFile(l.id, { status: 'deprecated', retired: 'project idle' });
       recordChange(db, { lesson: l.id, action: 'archived', before: { status: l.status }, now, note: 'project idle' });

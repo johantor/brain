@@ -61,6 +61,25 @@ test('main prints nothing while learning is off, and the lessons once it is on',
   assert.equal(out.length, 1);
 });
 
+// Before 0.11.0, a draft sat out about 30% of sessions, and every session under a model
+// other than the one it was learned with.
+test('a draft loads in every session and under any model, from an old database too', (t) => {
+  const dir = tmp();
+  process.env.CLAUDE_BRAIN_DIR = dir;
+  t.after(() => delete process.env.CLAUDE_BRAIN_DIR);
+  const db = openDb(path.join(dir, 'brain.db'));
+  db.exec('ALTER TABLE lessons ADD COLUMN model TEXT; CREATE TABLE scores (lesson INTEGER PRIMARY KEY, verdict TEXT)');
+  lesson(db, 1);
+  db.prepare("UPDATE lessons SET model = 'opus-5'").run();
+  db.close();
+  configMain(['learn', 'on']);
+  const out = [];
+  t.mock.method(process.stdout, 'write', (s) => out.push(s));
+  t.mock.method(console, 'log', () => {});
+  for (let i = 0; i < 40; i++) main(JSON.stringify({ session_id: `s${i}`, cwd: '/w/shop', hook_event_name: 'SessionStart', model: i % 2 ? 'opus-5' : 'opus-6' }));
+  assert.equal(out.filter((o) => /L1 \(method-error\)/.test(JSON.parse(o).hookSpecificOutput?.additionalContext ?? '')).length, 40);
+});
+
 test('the context, overflow line included, never passes the budget', () => {
   const db = openDb(path.join(tmp(), 'brain.db'));
   for (let i = 1; i <= 13; i++) lesson(db, i, { description: `${'x'.repeat(290)}${String(i).padStart(7, '0')}` });
