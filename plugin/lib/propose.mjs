@@ -28,7 +28,8 @@ export function codeSpansOk(text) {
   return true;
 }
 
-const normalize = (s) => s.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+// Letters and digits of any script, so two non-Latin lessons never share a key.
+const normalize = (s) => s.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
 
 // Checks one candidate. Returns { lesson } or { reject: reason }.
 export function check(c, { names = [], cwd } = {}) {

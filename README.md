@@ -98,6 +98,10 @@ changes, each lesson about a mistake sits out its next 5 sessions; if the mistak
 back, the lesson is archived as fixed. Pinned lessons are never retired, and `/brain:undo`
 brings an archived one back.
 
+Ask "what should go in my global CLAUDE.md?" and brain lists the auto-memory entries that Claude
+Code keeps in two or more of your projects. It suggests them; it never edits `CLAUDE.md` or auto
+memory.
+
 A session starts with one line that lists what changed since the last one. Every change is also
 in `~/.claude/brain/changes.log`.
 

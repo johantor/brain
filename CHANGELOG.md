@@ -5,6 +5,13 @@ All notable changes to the `brain` plugin are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.0] - 2026-11-11
+
+### Added
+
+- The `brain` skill proposes auto-memory entries that recur in two or more projects for your
+  global `CLAUDE.md`; it edits neither (#17).
+
 ## [0.8.0] - 2026-11-11
 
 ### Added

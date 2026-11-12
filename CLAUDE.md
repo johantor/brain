@@ -78,6 +78,10 @@ Paths in *Map* and *Gotchas* are relative to `plugin/`, the directory users inst
   lessons with no session in the project for `IDLE_DAYS` (90). Archive is `deprecated` with
   `retired` in the file and an `archived` change; pinned lessons are never retired. `scoreAll()`
   rereads each lesson inside its transaction, so a pin made meanwhile holds.
+- `lib/memory.mjs`: reads every `<config>/projects/*/memory/MEMORY.md` (one entry per line;
+  list markers and links dropped, case and punctuation ignored) and prints the entries found in
+  2+ projects that `~/.claude/CLAUDE.md` does not hold yet. Writes nothing (#2). The `brain`
+  skill runs it.
 - `lib/manage.mjs` and `commands/forget.md`, `pin.md`, `undo.md`: forget sets `deprecated`
   (`retired: "vetoed"` in the file; the key still blocks re-learning), pin sets `stable` with
   `verified: human:local`, undo restores the `before` of the latest `changes` row not undone (a
