@@ -16,8 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- `/brain:forget`, `/brain:pin` and `/brain:undo`, and edits to `learned.md`: a deleted line
-  forgets a lesson, an edited one pins your wording (#14).
+- `/brain:forget`, `/brain:pin` and `/brain:undo`; `learned.md` lists the global lessons (#14).
 - A one-line notice at session start lists the lesson changes since the last session (#14).
 
 ## [0.5.0] - 2026-11-11
