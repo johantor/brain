@@ -6,7 +6,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
 import { callKey, exitCode, program, record } from '../plugin/lib/capture.mjs';
-import { DAY, openDb } from '../plugin/lib/db.mjs';
+import { DAY, openDb, tx } from '../plugin/lib/db.mjs';
 import { report } from '../plugin/lib/report.mjs';
 import { IDLE_MS, scan } from '../plugin/lib/scan.mjs';
 import { projectNames, scrub } from '../plugin/lib/scrub.mjs';
@@ -118,6 +118,20 @@ test('new activity takes a session off the queue as no-end', () => {
   db.prepare("INSERT INTO queue (sid, reason, ts) VALUES ('s1', 'no-end', ?)").run(NOW - 1);
   record(db, { session_id: 's1', hook_event_name: 'UserPromptSubmit', prompt: 'back again' }, NOW);
   assert.equal(db.prepare('SELECT count(*) AS n FROM queue').get().n, 0);
+});
+
+test('a locked database fails before the hook timeout', () => {
+  const file = path.join(tmp(), 'brain.db');
+  const holder = openDb(file);
+  const waiter = openDb(file);
+  holder.exec('BEGIN IMMEDIATE');
+  const t0 = Date.now();
+  assert.throws(() => tx(waiter, () => {}), /locked/);
+  const hooks = JSON.parse(fs.readFileSync(new URL('../plugin/hooks/hooks.json', import.meta.url), 'utf8')).hooks;
+  const limits = Object.values(hooks).flat().flatMap((g) => g.hooks).filter((h) => h.timeout).map((h) => h.timeout * 1000);
+  assert.ok(Date.now() - t0 < Math.min(...limits) - 2000, 'the wait leaves room for Node to start');
+  holder.close();
+  waiter.close();
 });
 
 test('openDb makes an existing directory and database private', () => {

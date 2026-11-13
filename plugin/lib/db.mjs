@@ -8,6 +8,9 @@ import { brainDir } from './paths.mjs';
 export const DAY = 86_400_000;
 export const KEEP_DAYS = 90;
 export const QUEUE_DAYS = 7;
+// Well under the hooks' 5 s timeout: a locked database must end in errors.log, not in
+// Claude Code's "hook timed out" notice.
+export const BUSY_MS = 2000;
 
 const SCHEMA = `
 CREATE TABLE IF NOT EXISTS sessions (
@@ -52,7 +55,7 @@ export function openDb(file = dbFile()) {
   fs.chmodSync(path.dirname(file), 0o700);
   if (fs.existsSync(file)) fs.chmodSync(file, 0o600);
   const db = new DatabaseSync(file);
-  db.exec('PRAGMA busy_timeout = 5000; PRAGMA journal_mode = WAL;');
+  db.exec(`PRAGMA busy_timeout = ${BUSY_MS}; PRAGMA journal_mode = WAL;`);
   db.exec(SCHEMA);
   return db;
 }
