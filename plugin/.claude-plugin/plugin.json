@@ -1,6 +1,6 @@
 {
   "name": "brain",
-  "version": "0.11.0",
+  "version": "0.11.1",
   "license": "Apache-2.0",
   "description": "Learns from every Claude Code session. Hooks record each session's prompts, failing tool calls, denied permissions, interrupts and token use to a local SQLite file, scrubbed. Reflection (off by default) drafts lessons from your corrections; loading (off by default) puts them in each session, where you forget or pin each one, and turns three on one tool into a skill. /brain:report shows the records.",
   "author": {

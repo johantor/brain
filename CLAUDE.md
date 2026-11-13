@@ -102,7 +102,7 @@ Paths in *Map* and *Gotchas* are relative to `plugin/`, the directory users inst
   `.git/config` as a file through `readSmall`, no git process; a worktree's `.git` file is
   followed through `commondir` to the shared config). Paths need two segments.
 - `lib/db.mjs`: `openDb()` (`umask 077`, chmods an existing directory to 700 and database to
-  600, WAL, `busy_timeout` 5 s, schema by `CREATE ... IF NOT EXISTS`),
+  600, WAL, `busy_timeout` `BUSY_MS` (2 s, under the hooks' 5 s timeout), schema by `CREATE ... IF NOT EXISTS`),
   `tx()`, `prune()`. Tables: `sessions` (sid, cwd, started, last, ended, end_reason, model,
   version, tokens_in, tokens_cached, tokens_out, interrupts), `events` (sid, ts, kind, tool, call,
   code, text), `queue` (sid, reason `end`|`no-end`, ts), `transcripts` (sid, sig: mtime and size
