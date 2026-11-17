@@ -26,7 +26,7 @@ belong to different clients.
 | View (table with `--all`) | Columns |
 |---|---|
 | `my_sessions` (`sessions`) | `sid`, `cwd`, `started`, `last`, `ended`, `end_reason`, `model`, `version`, `tokens_in`, `tokens_cached`, `tokens_out`, `interrupts` |
-| `my_events` (`events`) | `sid`, `ts`, `kind`, `tool`, `call`, `code`, `text` |
+| `my_events` (`events`) | `sid`, `ts`, `kind`, `tool`, `call`, `code`, `text`, `agent` (the subagent or `--agent` type, such as `crew:backend`; null in the main session) |
 | `my_denials` (`denials`) | permission rows whose call never ran |
 | `my_queue` (`queue`) | `sid`, `reason` (`end`, `no-end`), `ts` |
 | `my_lessons` (`lessons`) | `id` (shown as `L<id>`), `description`, `kind`, `scope` (`global`, `project`), `project`, `status` (`draft` and `stable` load when loading is on; `stable` is pinned; `deprecated` is forgotten or archived), `created`. `my_lessons` holds global lessons and this project's. |

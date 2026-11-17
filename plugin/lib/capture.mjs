@@ -31,12 +31,22 @@ export function program(p, names = []) {
   return name && /^[\w.+-]{1,40}$/.test(name) ? name : null;
 }
 
-// Scrubbed like any text: a skill can be named after a project or hold a token.
+// A skill or agent name, scrubbed like any text: it can be named after a project or hold a token.
+function safeName(s, names) {
+  if (typeof s !== 'string' || !/^[\w:.-]{1,80}$/.test(s)) return null;
+  const name = scrub(s, names);
+  return /^[\w:.-]+$/.test(name) ? name : null;
+}
+
 export function skillName(input, names = []) {
   const s = input?.skill;
-  if (typeof s !== 'string' || !/^[\w:.-]{1,80}$/.test(s)) return null;
-  const name = scrub(s.replace(/^.*:/, ''), names);
-  return /^[\w.-]+$/.test(name) ? name : null;
+  return typeof s === 'string' ? safeName(s.replace(/^.*:/, ''), names) : null;
+}
+
+// The agent that made the call (`crew:backend`, `Explore`), so friction splits by agent.
+// Claude Code sends `agent_type` inside a subagent and in a session started with --agent.
+export function agentName(type, names = []) {
+  return safeName(type, names);
 }
 
 // A failed Bash call's error starts with `Exit code N`; a success carries no code.
@@ -52,14 +62,15 @@ const UPSERT_SESSION = `
     started = min(coalesce(sessions.started, excluded.started), excluded.started),
     last = max(coalesce(sessions.last, 0), excluded.last)`;
 
-const INSERT_EVENT = 'INSERT INTO events (sid, ts, kind, tool, call, code, text) VALUES (?, ?, ?, ?, ?, ?, ?)';
+const INSERT_EVENT = 'INSERT INTO events (sid, ts, kind, tool, call, code, text, agent) VALUES (?, ?, ?, ?, ?, ?, ?, ?)';
 
 // Writes one payload. Returns false for a payload brain does not record.
 export function record(db, p, now = Date.now()) {
   if (!p || typeof p !== 'object' || typeof p.session_id !== 'string') return false;
   const sid = p.session_id;
+  const agent = p.agent_type ? agentName(p.agent_type, projectNames(p.cwd)) : null;
   const event = (kind, extra = {}) =>
-    db.prepare(INSERT_EVENT).run(sid, now, kind, extra.tool ?? null, extra.call ?? null, extra.code ?? null, extra.text ?? null);
+    db.prepare(INSERT_EVENT).run(sid, now, kind, extra.tool ?? null, extra.call ?? null, extra.code ?? null, extra.text ?? null, agent);
   const call = () => ({ tool: p.tool_name ?? null, call: callKey(p.tool_name, p.tool_input) });
 
   const write = {

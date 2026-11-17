@@ -4,8 +4,9 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { DatabaseSync } from 'node:sqlite';
 import { test } from 'node:test';
-import { callKey, exitCode, program, record } from '../plugin/lib/capture.mjs';
+import { agentName, callKey, exitCode, program, record } from '../plugin/lib/capture.mjs';
 import { DAY, openDb, tx } from '../plugin/lib/db.mjs';
 import { report } from '../plugin/lib/report.mjs';
 import { IDLE_MS, scan } from '../plugin/lib/scan.mjs';
@@ -231,6 +232,54 @@ test('report lists projects, repeated failures and the queue', () => {
   assert.match(out, /acme-web\s+1\s+0\s+2\s+0\s+0\s+0/);
   assert.match(out, /acme-web: Bash npm exit 1 x2/);
   assert.match(out, /Queue: 1 end/);
+});
+
+test('a call records the agent that made it, scrubbed', () => {
+  const db = freshDb();
+  const call = (agent_type, command) =>
+    record(db, { session_id: 's1', cwd: '/w/acme-web', hook_event_name: 'PostToolUse', tool_name: 'Bash', tool_input: { command }, agent_type }, NOW);
+  call('crew:backend', 'a');
+  call(undefined, 'b');
+  call('acme-web', 'c');
+  assert.deepEqual(db.prepare('SELECT agent FROM events ORDER BY id').all().map((r) => r.agent), ['crew:backend', null, null]);
+  assert.equal(agentName('Explore'), 'Explore');
+  assert.equal(agentName('x y'), null);
+  assert.equal(agentName({}), null);
+});
+
+test('report splits calls, failures and denials by agent', () => {
+  const db = freshDb();
+  const ev = (hook_event_name, agent_type, command, t) =>
+    record(db, { session_id: 's1', cwd: '/w/acme-web', hook_event_name, tool_name: 'Bash', tool_input: { command }, error: 'Exit code 1', agent_type }, t);
+  ev('PostToolUse', 'crew:e2e', 'a', NOW - 5);
+  ev('PostToolUseFailure', 'crew:e2e', 'b', NOW - 4);
+  ev('PermissionRequest', 'crew:e2e', 'c', NOW - 3);
+  ev('PostToolUse', undefined, 'd', NOW - 2);
+  const out = report(db, 14, NOW);
+  assert.match(out, /By agent:\n {2}agent\s+calls\s+failures\s+denials/);
+  assert.match(out, /crew:e2e\s+2\s+1\s+1/);
+  assert.match(out, /\(main\)\s+1\s+0\s+0/);
+});
+
+test('report has no agent table when no named agent made a call', () => {
+  const db = freshDb();
+  record(db, { session_id: 's1', cwd: '/w/acme-web', hook_event_name: 'PostToolUse', tool_name: 'Bash', tool_input: { command: 'a' } }, NOW);
+  assert.doesNotMatch(report(db, 14, NOW), /By agent/);
+});
+
+test('openDb adds the agent column to a database from before it, once', () => {
+  const file = path.join(tmp(), 'brain.db');
+  const old = new DatabaseSync(file);
+  old.exec(`CREATE TABLE events (id INTEGER PRIMARY KEY, sid TEXT NOT NULL, ts INTEGER NOT NULL, kind TEXT NOT NULL,
+    tool TEXT, call TEXT, code INTEGER, text TEXT);
+    INSERT INTO events (sid, ts, kind, call) VALUES ('s0', 1, 'permission', 'k');
+    CREATE VIEW denials AS SELECT p.* FROM events p WHERE p.kind = 'permission';`);
+  old.close();
+  openDb(file).close();
+  const db = openDb(file);
+  assert.deepEqual({ ...db.prepare("SELECT sid, agent FROM events WHERE sid = 's0'").get() }, { sid: 's0', agent: null });
+  record(db, { session_id: 's1', hook_event_name: 'PermissionRequest', tool_name: 'Bash', tool_input: { command: 'x' }, agent_type: 'crew:e2e' }, NOW);
+  assert.equal(db.prepare("SELECT agent FROM denials WHERE sid = 's1'").get().agent, 'crew:e2e');
 });
 
 test('report counts only events inside the window', () => {

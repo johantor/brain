@@ -19,7 +19,7 @@ CREATE TABLE IF NOT EXISTS sessions (
   interrupts INTEGER);
 CREATE TABLE IF NOT EXISTS events (
   id INTEGER PRIMARY KEY, sid TEXT NOT NULL, ts INTEGER NOT NULL, kind TEXT NOT NULL,
-  tool TEXT, call TEXT, code INTEGER, text TEXT);
+  tool TEXT, call TEXT, code INTEGER, text TEXT, agent TEXT);
 CREATE INDEX IF NOT EXISTS events_sid ON events (sid, kind);
 CREATE TABLE IF NOT EXISTS queue (sid TEXT PRIMARY KEY, reason TEXT NOT NULL, ts INTEGER NOT NULL);
 CREATE TABLE IF NOT EXISTS transcripts (sid TEXT PRIMARY KEY, sig TEXT NOT NULL);
@@ -57,6 +57,15 @@ export function openDb(file = dbFile()) {
   const db = new DatabaseSync(file);
   db.exec(`PRAGMA busy_timeout = ${BUSY_MS}; PRAGMA journal_mode = WAL;`);
   db.exec(SCHEMA);
+  // A database from before 0.12.0 has no events.agent. Two sessions can open it at once,
+  // so the loser of that race sees "duplicate column" and goes on.
+  if (!db.prepare("SELECT 1 FROM pragma_table_info('events') WHERE name = 'agent'").get()) {
+    try {
+      db.exec('ALTER TABLE events ADD COLUMN agent TEXT');
+    } catch (err) {
+      if (!/duplicate column/i.test(err.message)) throw err;
+    }
+  }
   return db;
 }
 
