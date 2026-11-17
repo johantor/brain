@@ -150,7 +150,8 @@ Paths in *Map* and *Gotchas* are relative to `plugin/`, the directory users inst
 - `lib/config.mjs`, `commands/shadow.md` and `commands/learn.md`: `config.json`, with `reflect`
   and `learn` both off by default.
 - `skills/reflect/SKILL.md`: drafts at most two lessons from the user's words, never tool output,
-  and runs the `propose.mjs` path the hook message names.
+  and runs `propose.mjs`. The hook message is one line (Claude Code prints it in the chat): the
+  session and its friction, or the tool and lesson ids; the skills hold the steps.
 - `lib/paths.mjs`: `brainDir()` (`CLAUDE_BRAIN_DIR`), `projectsDir()` (`CLAUDE_CONFIG_DIR`),
   `isMain()` (real paths, so a symlinked install runs its main).
 - `tests/capture.test.sh`: the hook end to end, then `node --test tests/*.test.mjs`. Node 22.13+

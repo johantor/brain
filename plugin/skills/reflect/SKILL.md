@@ -5,11 +5,12 @@ description: Drafts lessons from friction in a Claude Code session (a correction
 
 # brain: reflect
 
-A brain hook asked for this at the end of a turn: this session (or a queued one) had friction,
-and the trouble is now over. Work out what to learn, briefly. Spend a few hundred tokens, not thousands.
+A brain hook asked for this at the end of a turn: the session it names (this one, or an earlier
+one) had friction, and the trouble is now over. Work out what to learn, briefly. Spend a few hundred tokens, not thousands.
 
 1. **Find the episode.** What went wrong, what was tried, and what fixed it. Use this
-   conversation; for a queued session, read its record with the `brain` skill.
+   conversation; for an earlier session, read its record with the `brain` skill
+   (`my_events WHERE sid = '<session id>'`).
 2. **Decide whether there is a lesson.** Most episodes teach nothing new: a typo, a flaky network,
    a one-off. Then propose nothing. At most two lessons per reflection.
 3. **Write each lesson as one statement**: what to do or avoid, in which situation, and why. State
@@ -21,10 +22,10 @@ and the trouble is now over. Work out what to learn, briefly. Spend a few hundre
 5. **Pick the kind.** `preference` (how the user wants things done), `tool-habit` (which tool,
    and how), `method-error` (a way of working that failed), or `project-fact` (true only in this
    project). Only a `project-fact` may name the project, its paths or its services.
-6. **Propose** each lesson with the command the hook message gave, one JSON object on stdin:
+6. **Propose** each lesson with the session id the hook message gave, one JSON object on stdin:
 
    ```bash
-   node --disable-warning=ExperimentalWarning "<propose.mjs path>" <<'JSON'
+   node --disable-warning=ExperimentalWarning "${CLAUDE_PLUGIN_ROOT}/lib/propose.mjs" <<'JSON'
    {"description": "…", "kind": "method-error", "sessions": ["<session id>"]}
    JSON
    ```

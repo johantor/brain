@@ -5,6 +5,13 @@ All notable changes to the `brain` plugin are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.11.2] - 2026-11-17
+
+### Changed
+
+- The reflection and distill requests that Claude Code prints at a stop are one short line; the
+  skills hold the steps and the command.
+
 ## [0.11.1] - 2026-11-13
 
 ### Fixed
