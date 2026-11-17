@@ -1,5 +1,6 @@
-// SessionStart, in the foreground: loads the lessons for this project into the session
-// as background context, when learning is on (#5). Prints nothing when it is off, when
+// SessionStart and SubagentStart, in the foreground: loads the lessons for this project into
+// the session, and into each subagent, which never sees the session's context, when learning
+// is on (#5). Prints nothing when it is off, when
 // there are no lessons, or on any error: a session must start whatever brain does.
 import fs from 'node:fs';
 import path from 'node:path';
@@ -71,8 +72,9 @@ function welcome() {
   return WELCOME;
 }
 
-// The lessons and the change line, from the database; nothing when it does not exist yet.
-function fromDb(cwd) {
+// The lessons, and with `notify` the change line, from the database; nothing when it does
+// not exist yet.
+function fromDb(cwd, notify) {
   if (!fs.existsSync(dbFile())) return {};
   // Read-only: a session start never waits on, or blocks, another session's writes.
   const db = new DatabaseSync(dbFile(), { readOnly: true });
@@ -80,11 +82,13 @@ function fromDb(cwd) {
     db.exec('PRAGMA busy_timeout = 2000');
     if (!db.prepare("SELECT 1 FROM sqlite_master WHERE name = 'lessons'").get()) return {};
     const { chosen, left } = select(db, projectRoot(cwd));
+    const text = context(chosen, left);
+    if (!notify) return { text };
     const mark = path.join(brainDir(), '.noticed');
     const since = fs.existsSync(mark) ? fs.statSync(mark).mtimeMs : 0;
     const changed = db.prepare("SELECT 1 FROM sqlite_master WHERE name = 'changes'").get() ? notice(db, since) : null;
     if (changed) fs.writeFileSync(mark, '', { mode: 0o600 });
-    return { text: context(chosen, left), changed };
+    return { text, changed };
   } finally {
     db.close();
   }
@@ -96,12 +100,15 @@ export function main(input = fs.readFileSync(0, 'utf8')) {
     const payload = JSON.parse(input);
     if (typeof payload?.cwd !== 'string') return;
     process.umask(0o077);
-    const hello = welcome();
-    const { text, changed } = fromDb(payload.cwd);
+    // The welcome and the change line are for the user, once per session, not per subagent.
+    const event = payload.hook_event_name === 'SubagentStart' ? 'SubagentStart' : 'SessionStart';
+    const notify = event === 'SessionStart';
+    const hello = notify ? welcome() : null;
+    const { text, changed } = fromDb(payload.cwd, notify);
     const note = [hello, changed].filter(Boolean).join(' ');
     const out = {
       ...(note && { systemMessage: note }),
-      ...(text && { hookSpecificOutput: { hookEventName: 'SessionStart', additionalContext: text } }),
+      ...(text && { hookSpecificOutput: { hookEventName: event, additionalContext: text } }),
     };
     if (note || text) process.stdout.write(JSON.stringify(out));
   } catch (err) {

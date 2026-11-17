@@ -67,9 +67,10 @@ if [ "$(mode "$db")" = "600" ]; then _pass; else _fail "brain.db mode is $(mode 
 if [ "$(mode "$CLAUDE_BRAIN_DIR")" = "700" ]; then _pass; else _fail "brain dir mode is $(mode "$CLAUDE_BRAIN_DIR"), expected 700"; fi
 
 # Foreground hooks, each with a timeout: SessionEnd lands before the process exits, Stop
-# decides on reflection, and the two friction events land before their turn's Stop does.
+# decides on reflection, the two friction events land before their turn's Stop does, and
+# SubagentStart loads the lessons into a subagent.
 wiring="$(dirname "${BASH_SOURCE[0]}")/../plugin/hooks/hooks.json"
-sync='["PostToolUseFailure","SessionEnd","Stop","UserPromptSubmit"]'
+sync='["PostToolUseFailure","SessionEnd","Stop","SubagentStart","UserPromptSubmit"]'
 if jq -e --argjson s "$sync" '[.hooks | to_entries[] | select(.value[0].hooks[0] | (.async != true) and (.timeout | type == "number")) | .key] | sort == $s' "$wiring" >/dev/null; then
   _pass
 else
@@ -85,6 +86,11 @@ if jq -e '.hooks.SessionStart[1].hooks[0] | (.command | endswith("/hooks/load.sh
   _pass
 else
   _fail "SessionStart must run load.sh in the foreground with a timeout"
+fi
+if jq -e '.hooks.SubagentStart[0].hooks[0].command | endswith("/hooks/load.sh")' "$wiring" >/dev/null; then
+  _pass
+else
+  _fail "SubagentStart must run load.sh"
 fi
 CLAUDE_CODE_REMOTE=true assert_allow "load in the cloud" "load.sh" '{"session_id":"s9","hook_event_name":"SessionStart","cwd":"/w/acme"}'
 if [ -z "$_stdout" ]; then _pass; else _fail "load.sh printed in a cloud session: $_stdout"; fi

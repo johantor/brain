@@ -51,12 +51,14 @@ Paths in *Map* and *Gotchas* are relative to `plugin/`, the directory users inst
   `Stop`). The rest are async; `capture.test.sh` asserts the split. Exits at once when
   `CLAUDE_CODE_REMOTE=true`. Runs `node --disable-warning=ExperimentalWarning lib/capture.mjs`
   and always exits 0.
-- `hooks/load.sh` and `lib/load.mjs`: a second `SessionStart` hook, in the foreground
-  (`timeout: 5`), apart from the async capture, whose scan can take long. With `learn` on it opens
-  `brain.db` read-only, prints the project's lessons, then global ones, newest first, non-
+- `hooks/load.sh` and `lib/load.mjs`: a second `SessionStart` hook, and the `SubagentStart`
+  hook, in the foreground (`timeout: 5`), apart from the async capture, whose scan can take long.
+  A subagent never sees the session's context, so each one gets the lessons again. With `learn`
+  on it opens `brain.db` read-only, prints the project's lessons, then global ones, newest first, non-
   `deprecated`, pinned (`stable`) first, within `BUDGET` (4,000 characters) as
-  `additionalContext`, plus a `systemMessage` for the user listing `changes` since the
-  `.noticed` file's mtime, after a one-time welcome line (`.welcomed`) that says brain is on.
+  `additionalContext`, plus, at `SessionStart` only, a `systemMessage` for the user listing
+  `changes` since the `.noticed` file's mtime, after a one-time welcome line (`.welcomed`) that
+  says brain is on.
   Prints nothing when off or on any error, which goes to `errors.log`.
 - `lib/retire.mjs`: `retireIdle()` (async `SessionStart`, with `learn` on) archives a project
   lesson whose project has had no session for `IDLE_DAYS` (90): `deprecated`, `retired` in the

@@ -69,9 +69,9 @@ to reflect: the `reflect` skill drafts at most two lessons from your own words a
 reflection: with none of your words to learn from, it would only spend tokens. A reflection costs
 tokens in the session that runs it, at most 3 per session; `/brain:report` shows the average cost.
 
-From the next session on, each session starts with this project's lessons, then the global ones,
-newest first, up to about 1,000 tokens. They are background: your `CLAUDE.md` and your messages
-win, and Claude cites a lesson's ID, such as (L12), when one changes what it does. A session
+From the next session on, each session and each subagent starts with this project's lessons,
+then the global ones, newest first, up to about 1,000 tokens each. They are background: your
+`CLAUDE.md` and your messages win, and Claude cites a lesson's ID, such as (L12), when one changes what it does. A session
 starts with one line that names new lessons. `~/.claude/brain/learned.md` lists the global
 lessons; the `brain` skill lists all of them.
 
@@ -105,9 +105,9 @@ in `~/.claude/brain/changes.log`.
    `~/.claude/brain/brain.db`, a SQLite file. Four hooks run in the foreground for up to 5
    seconds: `SessionEnd`, so its row lands before Claude Code exits, `Stop`, which decides on
    reflection, and `UserPromptSubmit` and `PostToolUseFailure`, so their rows land before that
-   decision. A fifth, `hooks/load.sh` at `SessionStart`, prints the lessons to load. None fails
-   a session: no Node, a bad payload or a locked database all exit 0. Errors go to
-   `~/.claude/brain/errors.log`.
+   decision. A fifth, `hooks/load.sh` at `SessionStart` and `SubagentStart`, prints the lessons
+   to load. None fails a session: no Node, a bad payload or a locked database all exit 0.
+   Errors go to `~/.claude/brain/errors.log`.
 2. At each `SessionStart`, brain reads every transcript under `~/.claude/projects` that changed
    since its last read, whole, with the subagents' transcripts. The first run reads the last 90
    days, so the records start with your history.
