@@ -36,7 +36,7 @@ format; code rules are the `engineering-principles` skill
   unwritable directory, a locked database. A change that can exit non-zero, hang, or run longer
   than its `timeout` is Blocking.
 - **Async by default.** Only `SessionEnd`, `Stop`, `UserPromptSubmit`, `PostToolUseFailure` and
-  `load.sh` at `SessionStart` run in the foreground (`capture.test.sh` asserts it). A new foreground hook needs the reason in
+  `load.sh` at `SessionStart` and `SubagentStart` run in the foreground (`capture.test.sh` asserts it). A new foreground hook needs the reason in
   `CLAUDE.md`.
 - **Loaded lessons steer every session.** Loading stays off by default, stays within `BUDGET`,
   never loads another project's lessons or a `deprecated` one, and prints nothing on error.

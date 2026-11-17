@@ -73,6 +73,24 @@ test('the first session start says once that brain is on, even before a database
   assert.match(JSON.parse(out[0]).systemMessage, /^brain is on: .*\/brain:learn off stops it\.$/);
 });
 
+test('a subagent gets the lessons, and the welcome and change line stay with the session', (t) => {
+  const dir = tmp();
+  process.env.CLAUDE_BRAIN_DIR = dir;
+  t.after(() => delete process.env.CLAUDE_BRAIN_DIR);
+  const db = openDb(path.join(dir, 'brain.db'));
+  lesson(db, 1);
+  db.prepare("INSERT INTO changes (ts, lesson, action) VALUES (?, 1, 'proposed')").run(Date.now());
+  db.close();
+  const out = [];
+  t.mock.method(process.stdout, 'write', (s) => out.push(JSON.parse(s)));
+  main(JSON.stringify({ cwd: '/w/shop', hook_event_name: 'SubagentStart', agent_type: 'crew:backend' }));
+  assert.equal(out[0].hookSpecificOutput.hookEventName, 'SubagentStart');
+  assert.match(out[0].hookSpecificOutput.additionalContext, /L1 \(method-error\)/);
+  assert.equal(out[0].systemMessage, undefined);
+  main(JSON.stringify({ cwd: '/w/shop', hook_event_name: 'SessionStart' }));
+  assert.match(out[1].systemMessage, /^brain is on: .*proposed L1/);
+});
+
 // Before 0.11.0, a draft sat out about 30% of sessions, and every session under a model
 // other than the one it was learned with.
 test('a draft loads in every session and under any model, from an old database too', (t) => {
