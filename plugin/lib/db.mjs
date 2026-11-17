@@ -57,7 +57,7 @@ export function openDb(file = dbFile()) {
   const db = new DatabaseSync(file);
   db.exec(`PRAGMA busy_timeout = ${BUSY_MS}; PRAGMA journal_mode = WAL;`);
   db.exec(SCHEMA);
-  // A database from before 0.12.0 has no events.agent. Two sessions can open it at once,
+  // A database from before 0.13.0 has no events.agent. Two sessions can open it at once,
   // so the loser of that race sees "duplicate column" and goes on.
   if (!db.prepare("SELECT 1 FROM pragma_table_info('events') WHERE name = 'agent'").get()) {
     try {

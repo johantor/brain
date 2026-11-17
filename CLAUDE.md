@@ -56,7 +56,8 @@ Paths in *Map* and *Gotchas* are relative to `plugin/`, the directory users inst
   `brain.db` read-only, prints the project's lessons, then global ones, newest first, non-
   `deprecated`, pinned (`stable`) first, within `BUDGET` (4,000 characters) as
   `additionalContext`, plus a `systemMessage` for the user listing `changes` since the
-  `.noticed` file's mtime. Prints nothing when off or on any error, which goes to `errors.log`.
+  `.noticed` file's mtime, after a one-time welcome line (`.welcomed`) that says brain is on.
+  Prints nothing when off or on any error, which goes to `errors.log`.
 - `lib/retire.mjs`: `retireIdle()` (async `SessionStart`, with `learn` on) archives a project
   lesson whose project has had no session for `IDLE_DAYS` (90): `deprecated`, `retired` in the
   file and an `archived` change; pinned lessons never, and each lesson is reread inside its
@@ -108,7 +109,7 @@ Paths in *Map* and *Gotchas* are relative to `plugin/`, the directory users inst
   600, WAL, `busy_timeout` `BUSY_MS` (2 s, under the hooks' 5 s timeout), schema by `CREATE ... IF NOT EXISTS`),
   `tx()`, `prune()`. Tables: `sessions` (sid, cwd, started, last, ended, end_reason, model,
   version, tokens_in, tokens_cached, tokens_out, interrupts), `events` (sid, ts, kind, tool, call,
-  code, text, agent: added by `ALTER TABLE` to a database from before 0.12.0), `queue` (sid, reason `end`|`no-end`, ts), `transcripts` (sid, sig: mtime and size
+  code, text, agent: added by `ALTER TABLE` to a database from before 0.13.0), `queue` (sid, reason `end`|`no-end`, ts), `transcripts` (sid, sig: mtime and size
   of each file), `lessons` (id, key, description, kind, scope, project, status, created: an index
   of the lesson files), `changes` (id, ts, lesson, action, before as JSON, undone), `skills` (id, name, tool,
   description, body, status, created, activated, lessons). Databases from 0.8.0 to 0.10.x also
@@ -141,9 +142,9 @@ Paths in *Map* and *Gotchas* are relative to `plugin/`, the directory users inst
   becomes a project lesson, and its code spans may hold only a tool and flags. `store()` needs
   every session in the records and in the proposing project, and refuses a repeat (`key`: scope,
   project and normalized text, checked inside the write transaction). It writes a `draft`.
-- `lib/reflect.mjs`: `decide(db, payload, { enabled })` for `Stop`. Friction is `tool_fail`,
-  `denials` and `CORRECTION` prompts after the session's last `reflect` row. It asks when there
-  is friction and none inside this turn (a correction opens its own turn), else, in a clean
+- `lib/reflect.mjs`: `decide(db, payload, { enabled })` for `Stop`. Friction is `denials` and
+  `CORRECTION` prompts after the session's last `reflect` row, not `tool_fail` (no words of the
+  user to learn from). It asks when there is friction and none inside this turn (a correction opens its own turn), else, in a clean
   session, for one queued session of the same project. Skips when off, on `stop_hook_active`,
   with `background_tasks`, or after 3 per session. `capture.mjs` runs it in one transaction, so
   two sessions cannot claim one queued session. Asking adds a `reflect` row to the session that
@@ -151,8 +152,9 @@ Paths in *Map* and *Gotchas* are relative to `plugin/`, the directory users inst
   later of the two. `capture.mjs` prints the request as `hookSpecificOutput.additionalContext`,
   not a block. The scan stores each
   reflection's token cost in that row's `code`.
-- `lib/config.mjs`, `commands/shadow.md` and `commands/learn.md`: `config.json`, with `reflect`
-  and `learn` both off by default.
+- `lib/config.mjs` and `commands/learn.md`: `config.json`, one switch, `learn`, on by default:
+  it gates reflection and loading. A pre-0.12.0 file with `reflect` or `learn` on reads as on,
+  one with both off as off.
 - `skills/reflect/SKILL.md`: drafts at most two lessons from the user's words, never tool output,
   and runs `propose.mjs`. The hook message is one line (Claude Code prints it in the chat): the
   session and its friction, or the tool and lesson ids; the skills hold the steps.

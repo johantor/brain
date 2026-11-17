@@ -22,6 +22,7 @@ function session(db, sid = 's1', cwd = '/w/shop') {
     prompt: (text) => hook({ hook_event_name: 'UserPromptSubmit', prompt: text }),
     fail: () => hook({ hook_event_name: 'PostToolUseFailure', tool_name: 'Bash', tool_input: { command: 'npm test' }, error: 'Exit code 1' }),
     ok: () => hook({ hook_event_name: 'PostToolUse', tool_name: 'Bash', tool_input: { command: 'npm test -- --fix' } }),
+    deny: () => hook({ hook_event_name: 'PermissionRequest', tool_name: 'Bash', tool_input: { command: 'rm -rf dist' } }),
     stop: (extra = {}) => decide(db, { session_id: sid, ...extra }, { enabled: true, now: (t += 1000) }),
   };
 }
@@ -40,18 +41,26 @@ test('off by default, and nothing without friction', () => {
   assert.equal(clean.stop(), null);
 });
 
-test('waits while the trouble lasts, then reflects once at the first clean stop', () => {
+test('a failed call alone starts no reflection: there are no words of the user to learn from', () => {
   const db = freshDb();
   const s = session(db);
   s.prompt('add a cart');
   s.fail();
-  assert.equal(s.stop(), null, 'the failure is in this turn');
   s.prompt('try again');
   s.ok();
+  assert.equal(s.stop(), null);
+});
+
+test('waits while the trouble lasts, then reflects once at the first clean stop', () => {
+  const db = freshDb();
+  const s = session(db);
+  s.prompt('clean the build');
+  s.deny();
+  assert.equal(s.stop(), null, 'the denial is in this turn');
+  s.prompt('use the clean script instead');
+  s.ok();
   const context = s.stop();
-  assert.match(context, /a failed npm/);
-  assert.match(context, /brain:reflect/);
-  assert.equal(context, 'brain: reflect on this session s1: a failed npm. Use the brain:reflect skill.');
+  assert.equal(context, 'brain: reflect on this session s1: a denied Bash call. Use the brain:reflect skill.');
   s.prompt('next task');
   s.ok();
   assert.equal(s.stop(), null, 'that friction is already reflected on');
@@ -116,12 +125,19 @@ test('the scan stores what each reflection cost', async () => {
   assert.equal(db.prepare("SELECT code FROM events WHERE kind = 'reflect'").get().code, 110);
 });
 
-test('config: reflect is off until turned on', (t) => {
-  process.env.CLAUDE_BRAIN_DIR = tmp();
+test('config: learning is on until turned off; an older file keeps its choice', (t) => {
+  const dir = tmp();
+  process.env.CLAUDE_BRAIN_DIR = dir;
   t.after(() => delete process.env.CLAUDE_BRAIN_DIR);
   t.mock.method(console, 'log', () => {});
-  assert.equal(readConfig().reflect, false);
-  assert.equal(configMain(['reflect', 'on']), 0);
-  assert.equal(readConfig().reflect, true);
-  assert.equal(configMain(['reflect', 'maybe']), 2);
+  assert.equal(readConfig().learn, true);
+  assert.equal(configMain(['learn', 'off']), 0);
+  assert.equal(readConfig().learn, false);
+  assert.equal(configMain(['learn', 'maybe']), 2);
+  assert.equal(configMain(['reflect', 'on']), 2, 'one switch only');
+  const old = (c) => fs.writeFileSync(path.join(dir, 'config.json'), JSON.stringify(c));
+  old({ reflect: false, learn: false });
+  assert.equal(readConfig().learn, false, 'both off before 0.12.0 stays off');
+  old({ reflect: true, learn: false });
+  assert.equal(readConfig().learn, true, 'shadow reflection on stays on');
 });

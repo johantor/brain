@@ -5,12 +5,21 @@ All notable changes to the `brain` plugin are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.12.0] - 2026-11-17
+## [0.13.0] - 2026-11-17
 
 ### Added
 
 - brain records which agent made each call, and `/brain:report` splits calls, failures and
   denials by agent.
+
+## [0.12.0] - 2026-11-17
+
+### Changed
+
+- Learning is on from install: one switch, `/brain:learn`, drafts and loads lessons, and the first
+  session says so once. A config file from an earlier version keeps its choice. `/brain:shadow`
+  is removed.
+- A failed call alone no longer starts a reflection; a correction or a denied permission does.
 
 ## [0.11.2] - 2026-11-17
 
