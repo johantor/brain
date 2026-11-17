@@ -19,7 +19,7 @@ CREATE TABLE IF NOT EXISTS sessions (
   interrupts INTEGER);
 CREATE TABLE IF NOT EXISTS events (
   id INTEGER PRIMARY KEY, sid TEXT NOT NULL, ts INTEGER NOT NULL, kind TEXT NOT NULL,
-  tool TEXT, call TEXT, code INTEGER, text TEXT);
+  tool TEXT, call TEXT, code INTEGER, text TEXT, agent TEXT);
 CREATE INDEX IF NOT EXISTS events_sid ON events (sid, kind);
 CREATE TABLE IF NOT EXISTS queue (sid TEXT PRIMARY KEY, reason TEXT NOT NULL, ts INTEGER NOT NULL);
 CREATE TABLE IF NOT EXISTS transcripts (sid TEXT PRIMARY KEY, sig TEXT NOT NULL);
@@ -36,12 +36,14 @@ CREATE TABLE IF NOT EXISTS skills (
 CREATE TABLE IF NOT EXISTS changes (
   id INTEGER PRIMARY KEY, ts INTEGER NOT NULL, lesson INTEGER NOT NULL, action TEXT NOT NULL,
   before TEXT, undone INTEGER NOT NULL DEFAULT 0);
--- A denied dialog has no hook of its own: it is a permission request whose call never ran.
-CREATE VIEW IF NOT EXISTS denials AS
-  SELECT p.* FROM events p WHERE p.kind = 'permission' AND NOT EXISTS (
-    SELECT 1 FROM events t WHERE t.sid = p.sid AND t.call = p.call
-      AND t.kind IN ('tool_ok', 'tool_fail') AND t.ts >= p.ts);
 `;
+
+// A denied dialog has no hook of its own: it is a permission request whose call never ran in
+// the same agent. Another agent running the same call later does not answer it.
+const DENIALS = `
+  SELECT p.* FROM events p WHERE p.kind = 'permission' AND NOT EXISTS (
+    SELECT 1 FROM events t WHERE t.sid = p.sid AND t.call = p.call AND t.agent IS p.agent
+      AND t.kind IN ('tool_ok', 'tool_fail') AND t.ts >= p.ts)`;
 
 export function dbFile() {
   return path.join(brainDir(), 'brain.db');
@@ -57,6 +59,16 @@ export function openDb(file = dbFile()) {
   const db = new DatabaseSync(file);
   db.exec(`PRAGMA busy_timeout = ${BUSY_MS}; PRAGMA journal_mode = WAL;`);
   db.exec(SCHEMA);
+  db.exec(`CREATE VIEW IF NOT EXISTS denials AS ${DENIALS}`);
+  // A database from before 0.13.0 has no events.agent, and its view ignores agents. The check
+  // repeats inside the transaction: two sessions can open the same old database at once.
+  const hasAgent = () => db.prepare("SELECT 1 FROM pragma_table_info('events') WHERE name = 'agent'").get();
+  if (!hasAgent()) {
+    tx(db, () => {
+      if (hasAgent()) return;
+      db.exec(`ALTER TABLE events ADD COLUMN agent TEXT; DROP VIEW denials; CREATE VIEW denials AS ${DENIALS}`);
+    });
+  }
   return db;
 }
 

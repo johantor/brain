@@ -26,6 +26,7 @@ Site: <https://johantor.github.io/brain/>
 | Your prompts, scrubbed | `UserPromptSubmit` |
 | Failing tool calls: the tool, the program a Bash call ran, the exit code | `PostToolUseFailure` |
 | Denied permission dialogs: a request whose call never ran | `PermissionRequest`, `PostToolUse` |
+| Which agent made a call: a subagent, or a session started with `--agent`, scrubbed | Each hook's `agent_type` |
 | Session end, and sessions that went quiet for 12 hours without one | `SessionEnd`, the transcript scan |
 | Token use (each reply counted once, subagents included), interrupts, model, version | The transcript scan |
 
@@ -44,7 +45,9 @@ Use Claude Code as usual. After a few sessions, run:
 ```
 
 It prints one row per project (sessions, prompts, failures, denials, interrupts, tokens out),
-the calls that failed twice or more in one session, and the queue. `--days <n>` changes the
+the calls that failed twice or more in one session, and the queue. Once a subagent or an
+`--agent` session made a call, it also splits calls, failures and denials by agent;
+`(main/unknown)` holds the main session and calls recorded without an agent. `--days <n>` changes the
 window; the default is 14.
 
 ## Asking about your sessions
