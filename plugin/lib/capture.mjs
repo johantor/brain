@@ -73,7 +73,8 @@ export function record(db, p, now = Date.now()) {
     // For a Skill call, the skill's name: skills.mjs retires brain skills nobody uses.
     PostToolUse: () => event('tool_ok', { ...call(), text: p.tool_name === 'Skill' ? skillName(p.tool_input, projectNames(p.cwd)) : null }),
     PostToolUseFailure: () => event('tool_fail', { ...call(), code: exitCode(p.error), text: program(p, projectNames(p.cwd)) }),
-    PermissionRequest: () => event('permission', call()),
+    // A question to the user is not a permission: an answered one must not read as a denial.
+    PermissionRequest: () => p.tool_name !== 'AskUserQuestion' && event('permission', call()),
     Stop: () => {},
     SessionEnd: () => {
       db.prepare('UPDATE sessions SET ended = ?, end_reason = ? WHERE sid = ?').run(now, p.reason ?? null, sid);

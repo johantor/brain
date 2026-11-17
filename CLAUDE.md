@@ -92,7 +92,8 @@ Paths in *Map* and *Gotchas* are relative to `plugin/`, the directory users inst
 - `lib/capture.mjs`: `record(db, payload)` writes one hook payload in one transaction: it upserts
   the session (`cwd` and `started` first seen, `last` the latest) and adds one `events` row.
   Kinds: `prompt` (scrubbed text, at most 2000 characters), `tool_ok`, `tool_fail` (`code` from
-  `Exit code N`, `text` the Bash program name only, scrubbed), `permission`. Any new activity
+  `Exit code N`, `text` the Bash program name only, scrubbed), `permission` (not for
+  `AskUserQuestion`: a question is not a permission). Any new activity
   drops the session's `no-end` queue entry. `call` is board's hash of tool
   name and input, since PermissionRequest has no `tool_use_id`. `SessionEnd` sets `ended` and
   queues the session as `end`. `SessionStart` also runs `scan()`. Errors go to `errors.log`,
@@ -150,7 +151,8 @@ Paths in *Map* and *Gotchas* are relative to `plugin/`, the directory users inst
 - `lib/config.mjs`, `commands/shadow.md` and `commands/learn.md`: `config.json`, with `reflect`
   and `learn` both off by default.
 - `skills/reflect/SKILL.md`: drafts at most two lessons from the user's words, never tool output,
-  and runs the `propose.mjs` path the hook message names.
+  and runs `propose.mjs`. The hook message is one line (Claude Code prints it in the chat): the
+  session and its friction, or the tool and lesson ids; the skills hold the steps.
 - `lib/paths.mjs`: `brainDir()` (`CLAUDE_BRAIN_DIR`), `projectsDir()` (`CLAUDE_CONFIG_DIR`),
   `isMain()` (real paths, so a symlinked install runs its main).
 - `tests/capture.test.sh`: the hook end to end, then `node --test tests/*.test.mjs`. Node 22.13+

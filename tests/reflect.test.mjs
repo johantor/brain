@@ -51,7 +51,7 @@ test('waits while the trouble lasts, then reflects once at the first clean stop'
   const context = s.stop();
   assert.match(context, /a failed npm/);
   assert.match(context, /brain:reflect/);
-  assert.match(context, /propose\.mjs/);
+  assert.equal(context, 'brain: reflect on this session s1: a failed npm. Use the brain:reflect skill.');
   s.prompt('next task');
   s.ok();
   assert.equal(s.stop(), null, 'that friction is already reflected on');
@@ -91,7 +91,7 @@ test('a clean session takes one queued session of the same project', () => {
   now.prompt('add a cart');
   now.ok();
   const context = now.stop();
-  assert.match(context, /earlier session in this project \(old\)/);
+  assert.match(context, /the earlier session old: /);
   assert.deepEqual(db.prepare('SELECT sid FROM queue').all().map((r) => r.sid), ['far']);
   assert.equal(now.stop(), null, 'one per stop, and the queued one is marked');
   const kinds = db.prepare("SELECT sid, kind FROM events WHERE kind IN ('reflect', 'reflected') ORDER BY sid").all().map((r) => `${r.sid}:${r.kind}`);

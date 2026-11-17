@@ -1,14 +1,11 @@
 // The Stop hook's decision: reflect now or not. Reflection waits for the first clean
 // stop after friction, so the lesson can pair the dead end with what fixed it (#3,
 // "Reflect"). Code decides when; the agent only drafts, and propose.mjs decides what.
-import { fileURLToPath } from 'node:url';
 import { DAY, QUEUE_DAYS } from './db.mjs';
 import { projectRoot } from './ask.mjs';
 import { waitingClusters } from './skills.mjs';
 
 export const MAX_PER_SESSION = 3;
-const PROPOSE = fileURLToPath(new URL('./propose.mjs', import.meta.url));
-const SKILLS = fileURLToPath(new URL('./skills.mjs', import.meta.url));
 
 // A prompt that pushes back on the last turn. A cheap marker, not a classifier: the
 // reflection itself judges whether there was a lesson.
@@ -42,26 +39,13 @@ function describe(items) {
   return Object.entries(counts).map(([k, n]) => (n > 1 ? `${k} (x${n})` : k)).join(', ');
 }
 
-function instruction(sid, what, fromRecord) {
-  const source = fromRecord
-    ? `an earlier session in this project (${sid}) that ended before it could reflect. Read its record with the brain skill (my_events WHERE sid = '${sid}')`
-    : 'this session';
-  return [
-    `brain: shadow reflection. Since the last reflection, ${source} had ${what}.`,
-    'Use the brain:reflect skill now, briefly, before you stop.',
-    `Propose with: node --disable-warning=ExperimentalWarning "${PROPOSE}" (sessions: ["${sid}"]).`,
-    'Then end the turn with one short line on what you stored, or "no lesson".',
-  ].join(' ');
-}
+// Claude Code prints a Stop hook's text in the chat, so each message is one line: the
+// skill holds the steps and the command.
+const instruction = (sid, what, fromRecord) =>
+  `brain: reflect on ${fromRecord ? 'the earlier session' : 'this session'} ${sid}: ${what}. Use the brain:reflect skill.`;
 
-function distillInstruction(cluster) {
-  return [
-    `brain: ${cluster.lessons.length} lessons name \`${cluster.tool}\`: ${cluster.lessons.map((l) => `L${l.id} "${l.description}"`).join('; ')}.`,
-    'Use the brain:distill skill now, briefly, to draft one skill from them.',
-    `Stage it with: node --disable-warning=ExperimentalWarning "${SKILLS}" propose, with "tool": "${cluster.tool}" in the JSON.`,
-    'Then end the turn with one short line on what you staged, or "no skill".',
-  ].join(' ');
-}
+const distillInstruction = (cluster) =>
+  `brain: ${cluster.lessons.length} lessons name \`${cluster.tool}\`: ${cluster.lessons.map((l) => `L${l.id}`).join(', ')}. Use the brain:distill skill.`;
 
 // Returns the additionalContext to send, or null to let the stop proceed. Run it in one
 // transaction (capture.mjs does), so two sessions cannot claim the same queued episode.
