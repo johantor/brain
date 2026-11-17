@@ -258,7 +258,18 @@ test('report splits calls, failures and denials by agent', () => {
   const out = report(db, 14, NOW);
   assert.match(out, /By agent:\n {2}agent\s+calls\s+failures\s+denials/);
   assert.match(out, /crew:e2e\s+2\s+1\s+1/);
-  assert.match(out, /\(main\)\s+1\s+0\s+0/);
+  assert.match(out, /\(main\/unknown\)\s+1\s+0\s+0/);
+});
+
+test('a denial stays with its agent when another agent runs the same call', () => {
+  const db = freshDb();
+  const ev = (hook_event_name, agent_type, t) =>
+    record(db, { session_id: 's1', cwd: '/w/acme-web', hook_event_name, tool_name: 'Bash', tool_input: { command: 'rm x' }, agent_type }, t);
+  ev('PermissionRequest', 'crew:backend', NOW - 3);
+  ev('PostToolUse', 'crew:e2e', NOW - 2);
+  ev('PermissionRequest', 'crew:e2e', NOW - 1);
+  ev('PostToolUse', 'crew:e2e', NOW);
+  assert.deepEqual(db.prepare('SELECT agent FROM denials').all().map((r) => r.agent), ['crew:backend']);
 });
 
 test('report has no agent table when no named agent made a call', () => {
@@ -280,6 +291,9 @@ test('openDb adds the agent column to a database from before it, once', () => {
   assert.deepEqual({ ...db.prepare("SELECT sid, agent FROM events WHERE sid = 's0'").get() }, { sid: 's0', agent: null });
   record(db, { session_id: 's1', hook_event_name: 'PermissionRequest', tool_name: 'Bash', tool_input: { command: 'x' }, agent_type: 'crew:e2e' }, NOW);
   assert.equal(db.prepare("SELECT agent FROM denials WHERE sid = 's1'").get().agent, 'crew:e2e');
+  // The old view is replaced: a request whose call then ran is no denial.
+  record(db, { session_id: 's1', hook_event_name: 'PostToolUse', tool_name: 'Bash', tool_input: { command: 'x' }, agent_type: 'crew:e2e' }, NOW);
+  assert.equal(db.prepare("SELECT count(*) AS n FROM denials WHERE sid = 's1'").get().n, 0);
 });
 
 test('report counts only events inside the window', () => {

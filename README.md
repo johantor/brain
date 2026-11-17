@@ -46,7 +46,8 @@ Use Claude Code as usual. After a few sessions, run:
 
 It prints one row per project (sessions, prompts, failures, denials, interrupts, tokens out),
 the calls that failed twice or more in one session, and the queue. Once a subagent or an
-`--agent` session made a call, it also splits calls, failures and denials by agent. `--days <n>` changes the
+`--agent` session made a call, it also splits calls, failures and denials by agent;
+`(main/unknown)` holds the main session and calls recorded without an agent. `--days <n>` changes the
 window; the default is 14.
 
 ## Asking about your sessions

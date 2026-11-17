@@ -24,8 +24,9 @@ const REPEATED = `
   GROUP BY e.sid, e.call HAVING n >= 2 ORDER BY n DESC LIMIT 10`;
 
 // Friction per agent: which subagent or --agent session fails or gets denied, against its calls.
+// No agent: the main session, an event from before 0.13.0, or a name the scrubber dropped.
 const PER_AGENT = `
-  SELECT coalesce(agent, '(main)') AS agent, sum(calls) AS calls, sum(failures) AS failures, sum(denials) AS denials
+  SELECT coalesce(agent, '(main/unknown)') AS agent, sum(calls) AS calls, sum(failures) AS failures, sum(denials) AS denials
   FROM (
     SELECT agent, kind IN ('tool_ok', 'tool_fail') AS calls, kind = 'tool_fail' AS failures, 0 AS denials
       FROM events WHERE ts >= $since
@@ -49,7 +50,7 @@ export function report(db, days, now = Date.now()) {
   }
   // Only once some call came from a named agent: without one, the table repeats the totals.
   const agents = db.prepare(PER_AGENT).all({ since });
-  if (agents.some((a) => a.agent !== '(main)')) {
+  if (agents.some((a) => a.agent !== '(main/unknown)')) {
     out.push('', 'By agent:');
     const head = ['agent', 'calls', 'failures', 'denials'];
     out.push(...table([head, ...agents.map((a) => [a.agent, a.calls, a.failures, a.denials].map(String))]).map((l) => `  ${l}`));
