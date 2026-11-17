@@ -89,18 +89,20 @@ fi
 CLAUDE_CODE_REMOTE=true assert_allow "load in the cloud" "load.sh" '{"session_id":"s9","hook_event_name":"SessionStart","cwd":"/w/acme"}'
 if [ -z "$_stdout" ]; then _pass; else _fail "load.sh printed in a cloud session: $_stdout"; fi
 
-# Stop prints a reflection request only when reflection is on and a turn ended clean after friction.
+# Stop prints a reflection request only when learning is on and a turn ended clean after friction.
+config="$(dirname "${BASH_SOURCE[0]}")/../plugin/lib/config.mjs"
+node "$config" learn off >/dev/null
 stop='{"session_id":"r1","hook_event_name":"Stop","cwd":"/w/acme"}'
 "$BASH" "$HOOKS_DIR/$HOOK" <<<'{"session_id":"r1","hook_event_name":"UserPromptSubmit","cwd":"/w/acme","prompt":"no, use pnpm"}'
 out="$("$BASH" "$HOOKS_DIR/$HOOK" <<<"$stop")"
-if [ -z "$out" ]; then _pass; else _fail "Stop with reflection off printed: $out"; fi
-node "$(dirname "${BASH_SOURCE[0]}")/../plugin/lib/config.mjs" reflect on >/dev/null
+if [ -z "$out" ]; then _pass; else _fail "Stop with learning off printed: $out"; fi
+node "$config" learn on >/dev/null
 "$BASH" "$HOOKS_DIR/$HOOK" <<<'{"session_id":"r2","hook_event_name":"UserPromptSubmit","cwd":"/w/acme","prompt":"no, use pnpm"}'
 out="$("$BASH" "$HOOKS_DIR/$HOOK" <<<'{"session_id":"r2","hook_event_name":"Stop","cwd":"/w/acme"}')"
 if jq -e '.hookSpecificOutput | .hookEventName == "Stop" and (.additionalContext | test("brain:reflect"))' >/dev/null 2>&1 <<<"$out"; then
   _pass
 else
-  _fail "Stop with reflection on: expected additionalContext, got: ${out:-nothing}"
+  _fail "Stop with learning on: expected additionalContext, got: ${out:-nothing}"
 fi
 
 # The report runs on the same database.

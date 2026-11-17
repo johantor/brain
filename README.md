@@ -8,9 +8,9 @@
 work out what went wrong, and make the next session better, with no `/learn` step. The design is
 [#3](https://github.com/johantor/brain/issues/3).
 
-brain records the signals, answers questions about them, drafts lessons in shadow mode, and can
-load them into each session, where you keep, pin or forget each one, and it turns lessons on one
-tool into a skill. Drafting and loading both start off.
+brain records the signals, answers questions about them, drafts lessons from your corrections and
+loads them into each session, where you keep, pin or forget each one, and it turns lessons on one
+tool into a skill. It is on from install; `/brain:learn off` stops the drafting and the loading.
 
 ```bash
 claude plugin marketplace add johantor/plugins
@@ -54,32 +54,23 @@ should I create?". The `brain` skill queries the records through a read-only con
 answers with counts and dates, then a suggestion. It reads the current project only, unless you
 ask across projects. It suggests; it creates nothing.
 
-## Shadow reflection
+## Learning
 
-```
-/brain:shadow on
-```
+Learning is on from install. The first session says so once; `/brain:learn off` stops it, and
+`/brain:learn on` turns it back on.
 
-With reflection on, brain watches for friction: a failing call, a denied permission, or a prompt
-that pushes back ("no, …", "wrong", "undo"). At the first turn after it that ends clean, the Stop
-hook asks Claude to reflect: the `reflect` skill drafts at most two lessons from your own words and
-hands them to `brain propose`, which scrubs them, checks them and stores them as drafts. Nothing
-loads into a session. Ask "which lessons did brain draft?" to see them.
-
-It costs tokens in the session that reflects: at most 3 reflections per session, and
-`/brain:report` shows the average cost. It starts off for that reason. `/brain:shadow off` stops it.
-
-## Loading lessons
-
-```
-/brain:learn on
-```
+brain watches for friction that you caused: a denied permission, or a prompt that pushes back
+("no, …", "wrong", "undo"). At the first turn after it that ends clean, the Stop hook asks Claude
+to reflect: the `reflect` skill drafts at most two lessons from your own words and hands them to
+`brain propose`, which scrubs them, checks them and stores them. A failed call alone starts no
+reflection: with none of your words to learn from, it would only spend tokens. A reflection costs
+tokens in the session that runs it, at most 3 per session; `/brain:report` shows the average cost.
 
 From the next session on, each session starts with this project's lessons, then the global ones,
 newest first, up to about 1,000 tokens. They are background: your `CLAUDE.md` and your messages
-win, and Claude cites a lesson's ID, such as (L12), when one changes what it does.
-`~/.claude/brain/learned.md` lists the global lessons; the `brain` skill lists all of them.
-`/brain:learn off` stops loading.
+win, and Claude cites a lesson's ID, such as (L12), when one changes what it does. A session
+starts with one line that names new lessons. `~/.claude/brain/learned.md` lists the global
+lessons; the `brain` skill lists all of them.
 
 You stay in charge of every lesson:
 

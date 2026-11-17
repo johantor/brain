@@ -60,31 +60,50 @@ export function notice(db, since) {
   return `brain: since the last session, ${parts.join('; ')}. /brain:undo reverses the latest lesson change; /brain:forget S<n> removes a skill.`;
 }
 
+// Once, so a user who never turned brain on learns that it is on and how to stop it.
+const WELCOME = 'brain is on: it learns from your corrections and loads the lessons at session start. /brain:learn off stops it.';
+
+function welcome() {
+  const mark = path.join(brainDir(), '.welcomed');
+  if (fs.existsSync(mark)) return null;
+  fs.mkdirSync(brainDir(), { recursive: true, mode: 0o700 });
+  fs.writeFileSync(mark, '', { mode: 0o600 });
+  return WELCOME;
+}
+
+// The lessons and the change line, from the database; nothing when it does not exist yet.
+function fromDb(cwd) {
+  if (!fs.existsSync(dbFile())) return {};
+  // Read-only: a session start never waits on, or blocks, another session's writes.
+  const db = new DatabaseSync(dbFile(), { readOnly: true });
+  try {
+    db.exec('PRAGMA busy_timeout = 2000');
+    if (!db.prepare("SELECT 1 FROM sqlite_master WHERE name = 'lessons'").get()) return {};
+    const { chosen, left } = select(db, projectRoot(cwd));
+    const mark = path.join(brainDir(), '.noticed');
+    const since = fs.existsSync(mark) ? fs.statSync(mark).mtimeMs : 0;
+    const changed = db.prepare("SELECT 1 FROM sqlite_master WHERE name = 'changes'").get() ? notice(db, since) : null;
+    if (changed) fs.writeFileSync(mark, '', { mode: 0o600 });
+    return { text: context(chosen, left), changed };
+  } finally {
+    db.close();
+  }
+}
+
 export function main(input = fs.readFileSync(0, 'utf8')) {
   try {
-    if (!readConfig().learn || !fs.existsSync(dbFile())) return;
+    if (!readConfig().learn) return;
     const payload = JSON.parse(input);
     if (typeof payload?.cwd !== 'string') return;
     process.umask(0o077);
-    // Read-only: a session start never waits on, or blocks, another session's writes.
-    const db = new DatabaseSync(dbFile(), { readOnly: true });
-    try {
-      db.exec('PRAGMA busy_timeout = 2000');
-      if (!db.prepare("SELECT 1 FROM sqlite_master WHERE name = 'lessons'").get()) return;
-      const { chosen, left } = select(db, projectRoot(payload.cwd));
-      const text = context(chosen, left);
-      const mark = path.join(brainDir(), '.noticed');
-      const since = fs.existsSync(mark) ? fs.statSync(mark).mtimeMs : 0;
-      const note = db.prepare("SELECT 1 FROM sqlite_master WHERE name = 'changes'").get() ? notice(db, since) : null;
-      if (note) fs.writeFileSync(mark, '', { mode: 0o600 });
-      const out = {
-        ...(note && { systemMessage: note }),
-        ...(text && { hookSpecificOutput: { hookEventName: 'SessionStart', additionalContext: text } }),
-      };
-      if (note || text) process.stdout.write(JSON.stringify(out));
-    } finally {
-      db.close();
-    }
+    const hello = welcome();
+    const { text, changed } = fromDb(payload.cwd);
+    const note = [hello, changed].filter(Boolean).join(' ');
+    const out = {
+      ...(note && { systemMessage: note }),
+      ...(text && { hookSpecificOutput: { hookEventName: 'SessionStart', additionalContext: text } }),
+    };
+    if (note || text) process.stdout.write(JSON.stringify(out));
   } catch (err) {
     // Nothing to load is better than a session that does not start.
     logError(err);

@@ -127,7 +127,7 @@ export async function main() {
       }
     }
     if (payload?.hook_event_name === 'Stop' && typeof payload.session_id === 'string') {
-      const enabled = readConfig().reflect;
+      const enabled = readConfig().learn;
       const context = enabled ? tx(db, () => decide(db, payload, { enabled })) : null;
       // additionalContext, not a block: Claude continues, and the transcript shows hook
       // feedback rather than a hook error (#3, "Reflect").
