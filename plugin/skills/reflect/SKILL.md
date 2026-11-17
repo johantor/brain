@@ -1,6 +1,6 @@
 ---
 name: reflect
-description: Drafts lessons from friction in a Claude Code session (a correction, a failing command, a denied permission) and hands them to brain propose. Use only when a brain hook message asks for shadow reflection.
+description: Drafts lessons from friction in a Claude Code session (a correction or a denied permission) and hands them to brain propose. Use only when a brain hook message asks for reflection.
 ---
 
 # brain: reflect

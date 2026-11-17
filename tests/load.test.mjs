@@ -50,6 +50,7 @@ test('main prints nothing while learning is off, and the lessons once it is on',
   const out = [];
   t.mock.method(process.stdout, 'write', (s) => out.push(s));
   t.mock.method(console, 'log', () => {});
+  configMain(['learn', 'off']);
   main(JSON.stringify({ cwd: '/w/shop' }));
   assert.equal(out.length, 0);
   configMain(['learn', 'on']);
@@ -59,6 +60,17 @@ test('main prints nothing while learning is off, and the lessons once it is on',
   assert.match(ctx.additionalContext, /L1 \(method-error\)/);
   main('not json');
   assert.equal(out.length, 1);
+});
+
+test('the first session start says once that brain is on, even before a database exists', (t) => {
+  process.env.CLAUDE_BRAIN_DIR = tmp();
+  t.after(() => delete process.env.CLAUDE_BRAIN_DIR);
+  const out = [];
+  t.mock.method(process.stdout, 'write', (s) => out.push(s));
+  main(JSON.stringify({ cwd: '/w/shop' }));
+  main(JSON.stringify({ cwd: '/w/shop' }));
+  assert.equal(out.length, 1);
+  assert.match(JSON.parse(out[0]).systemMessage, /^brain is on: .*\/brain:learn off stops it\.$/);
 });
 
 // Before 0.11.0, a draft sat out about 30% of sessions, and every session under a model
