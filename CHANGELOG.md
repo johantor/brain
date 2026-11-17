@@ -12,6 +12,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The reflection and distill requests that Claude Code prints at a stop are one short line; the
   skills hold the steps and the command.
 
+### Fixed
+
+- An `AskUserQuestion` call no longer counts as a denied permission.
+
 ## [0.11.1] - 2026-11-13
 
 ### Fixed

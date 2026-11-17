@@ -111,6 +111,8 @@ test('a permission request whose call never ran counts as a denial', () => {
   ask('npm install', NOW + 1);
   ran('npm install', NOW + 2);
   assert.deepEqual(db.prepare('SELECT count(*) AS n FROM denials').get().n, 1);
+  record(db, { session_id: 's1', hook_event_name: 'PermissionRequest', tool_name: 'AskUserQuestion', tool_input: { questions: [] } }, NOW + 3);
+  assert.deepEqual(db.prepare('SELECT count(*) AS n FROM denials').get().n, 1, 'a question is not a permission');
 });
 
 test('new activity takes a session off the queue as no-end', () => {

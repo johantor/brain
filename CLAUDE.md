@@ -92,7 +92,8 @@ Paths in *Map* and *Gotchas* are relative to `plugin/`, the directory users inst
 - `lib/capture.mjs`: `record(db, payload)` writes one hook payload in one transaction: it upserts
   the session (`cwd` and `started` first seen, `last` the latest) and adds one `events` row.
   Kinds: `prompt` (scrubbed text, at most 2000 characters), `tool_ok`, `tool_fail` (`code` from
-  `Exit code N`, `text` the Bash program name only, scrubbed), `permission`. Any new activity
+  `Exit code N`, `text` the Bash program name only, scrubbed), `permission` (not for
+  `AskUserQuestion`: a question is not a permission). Any new activity
   drops the session's `no-end` queue entry. `call` is board's hash of tool
   name and input, since PermissionRequest has no `tool_use_id`. `SessionEnd` sets `ended` and
   queues the session as `end`. `SessionStart` also runs `scan()`. Errors go to `errors.log`,
