@@ -196,6 +196,25 @@ test('scan reads tokens once per reply, subagents included, plus interrupts and 
   assert.equal(s.last, t0 + 5);
 });
 
+test('scan counts each lesson citation once per reply, apart for subagents, and replaces them on a reread', async () => {
+  const db = freshDb();
+  const dir = tmp();
+  const t0 = NOW - 3 * 3_600_000;
+  const cite = (id, t, text) => ({ type: 'assistant', timestamp: at(t), message: { id, content: [{ type: 'text', text }] } });
+  const main = [
+    { type: 'user', timestamp: at(t0), message: { content: 'I said (L9) here' } },
+    cite('m1', t0 + 1, 'Using rg (L3).'),
+    cite('m1', t0 + 2, 'Again (L3) and (L4), but not L5.'),
+  ];
+  const pdir = writeTranscript(dir, 's1', main, [cite('m2', t0 + 3, 'Per (L3).')]);
+  await scan(db, dir, NOW);
+  const rows = () => db.prepare("SELECT code, text FROM events WHERE kind = 'cite' ORDER BY code, text").all().map((r) => ({ ...r }));
+  assert.deepEqual(rows(), [{ code: 3, text: 'main' }, { code: 3, text: 'subagent' }, { code: 4, text: 'main' }]);
+  fs.appendFileSync(path.join(pdir, 's1.jsonl'), `${JSON.stringify(cite('m3', t0 + 4, '(L4)'))}\n`);
+  await scan(db, dir, NOW);
+  assert.equal(rows().length, 4, 'a reread replaces the citations, it does not add them twice');
+});
+
 test('scan keeps what hooks recorded and rereads only changed transcripts', async () => {
   const db = freshDb();
   const dir = tmp();
@@ -232,6 +251,7 @@ test('report lists projects, repeated failures and the queue', () => {
   assert.match(out, /acme-web\s+1\s+0\s+2\s+0\s+0\s+0/);
   assert.match(out, /acme-web: Bash npm exit 1 x2/);
   assert.match(out, /Queue: 1 end/);
+  assert.match(out, /Lessons: 0 live, 0 pinned; cited 0 times \(0 in subagents\), repeated 0 times/);
 });
 
 test('a call records the agent that made it, scrubbed', () => {

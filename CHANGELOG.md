@@ -5,6 +5,18 @@ All notable changes to the `brain` plugin are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.15.0] - 2026-11-23
+
+### Added
+
+- `/brain:lessons` lists each lesson with how often sessions and subagents cited it and how often
+  its mistake happened again, suggests pin or forget, and applies your choice per lesson.
+- `/brain:report` counts lesson citations and repeats; a reflection names the subagent of a denial.
+
+### Removed
+
+- `/brain:pin`: `/brain:lessons` pins.
+
 ## [0.14.0] - 2026-11-17
 
 ### Added

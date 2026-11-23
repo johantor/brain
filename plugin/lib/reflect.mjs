@@ -16,8 +16,8 @@ export const CORRECTION = /^\s*(no|nope|not that|wrong|stop|don'?t|actually|that
 // words, so a reflection with none to read stores nothing and only spends tokens.
 export function friction(db, sid, since) {
   const rows = db.prepare(`
-    SELECT 'denial' AS kind, ts, tool AS what, NULL AS prompt FROM denials WHERE sid = $sid AND ts > $since
-    UNION ALL SELECT 'correction', ts, NULL, text FROM events WHERE sid = $sid AND kind = 'prompt' AND ts > $since
+    SELECT 'denial' AS kind, ts, tool AS what, NULL AS prompt, agent FROM denials WHERE sid = $sid AND ts > $since
+    UNION ALL SELECT 'correction', ts, NULL, text, NULL FROM events WHERE sid = $sid AND kind = 'prompt' AND ts > $since
     ORDER BY ts`).all({ sid, since });
   return rows.filter((r) => r.kind !== 'correction' || CORRECTION.test(r.prompt ?? ''));
 }
@@ -32,7 +32,8 @@ const reflectedAt = (db, sid) =>
 function describe(items) {
   const counts = {};
   for (const f of items) {
-    const key = f.kind === 'correction' ? 'a correction from the user' : `a denied ${f.what ?? 'tool'} call`;
+    // Name the subagent: the user does not see its calls, and its mistake may repeat a lesson.
+    const key = f.kind === 'correction' ? 'a correction from the user' : `a denied ${f.what ?? 'tool'} call${f.agent ? ` by ${f.agent}` : ''}`;
     counts[key] = (counts[key] ?? 0) + 1;
   }
   return Object.entries(counts).map(([k, n]) => (n > 1 ? `${k} (x${n})` : k)).join(', ');

@@ -22,7 +22,7 @@ function session(db, sid = 's1', cwd = '/w/shop') {
     prompt: (text) => hook({ hook_event_name: 'UserPromptSubmit', prompt: text }),
     fail: () => hook({ hook_event_name: 'PostToolUseFailure', tool_name: 'Bash', tool_input: { command: 'npm test' }, error: 'Exit code 1' }),
     ok: () => hook({ hook_event_name: 'PostToolUse', tool_name: 'Bash', tool_input: { command: 'npm test -- --fix' } }),
-    deny: () => hook({ hook_event_name: 'PermissionRequest', tool_name: 'Bash', tool_input: { command: 'rm -rf dist' } }),
+    deny: (agent_type) => hook({ hook_event_name: 'PermissionRequest', tool_name: 'Bash', tool_input: { command: 'rm -rf dist' }, agent_type }),
     stop: (extra = {}) => decide(db, { session_id: sid, ...extra }, { enabled: true, now: (t += 1000) }),
   };
 }
@@ -64,6 +64,16 @@ test('waits while the trouble lasts, then reflects once at the first clean stop'
   s.prompt('next task');
   s.ok();
   assert.equal(s.stop(), null, 'that friction is already reflected on');
+});
+
+test('a denial in a subagent names the agent, which the user never sees', () => {
+  const db = freshDb();
+  const s = session(db);
+  s.prompt('build the page');
+  s.deny('crew:frontend');
+  s.prompt('go on');
+  s.ok();
+  assert.equal(s.stop(), 'brain: reflect on this session s1: a denied Bash call by crew:frontend. Use the brain:reflect skill.');
 });
 
 test('a correction opens its turn, so that turn can end clean', () => {
