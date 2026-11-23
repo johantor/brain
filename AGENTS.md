@@ -18,7 +18,8 @@ applies here.
   (`brain.test.mjs`), and `release.test.sh` for the release scripts.
 - `scripts/`: repo tooling, never part of the plugin's behaviour: `check-changelog.sh` (the
   release gate) and `release-notes.sh` (used by `auto-release.yml`). Copies of board's.
-- `docs/`: the site on GitHub Pages. `style.css` is an exact copy of crew's `docs/style.css`;
+- `docs/`: the site on GitHub Pages, and the user docs the README links: `learning.md` and
+  `records.md`. `style.css` is an exact copy of crew's `docs/style.css`;
   a layout the page needs beyond it goes in a `brain.css`.
 - `.github/`: `workflows/` (CI and release), `skills/` (the repo's own skills, never shipped:
   `code-review`, the one rubric Copilot reads through `copilot-instructions.md`;
@@ -66,7 +67,7 @@ line, two at most: *what changed*, with the PR as `(#N)`. The why belongs in the
 
 - Hooks never block a session: `capture.sh` and `load.sh` always exit 0, and only the hooks
   `CLAUDE.md` names as synchronous in *Map* run in the foreground.
-- Tool output is never stored, and free text is scrubbed before it is (README, *Privacy*).
+- Tool output is never stored, and free text is scrubbed before it is (`SECURITY.md`).
 - No runtime dependencies beyond Node's standard library.
 - Code follows the `engineering-principles` skill (`.github/skills/engineering-principles/`).
 - Code comments explain *why* in one or two lines; a longer rationale lives once, in `CLAUDE.md`

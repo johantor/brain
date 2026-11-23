@@ -4,13 +4,9 @@
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 
 **Learns from every Claude Code session.** brain is a
-[Claude Code](https://code.claude.com/docs/en/overview) plugin that will read each finished session,
-work out what went wrong, and make the next session better, with no `/learn` step. The design is
-[#3](https://github.com/johantor/brain/issues/3).
-
-brain records the signals, answers questions about them, drafts lessons from your corrections and
-loads them into each session, where you keep, pin or forget each one, and it turns lessons on one
-tool into a skill. It is on from install; `/brain:learn off` stops the drafting and the loading.
+[Claude Code](https://code.claude.com/docs/en/overview) plugin. It records each session on your
+machine, learns from your corrections, and loads what it learned into the next session, with no
+`/learn` step. The design is [#3](https://github.com/johantor/brain/issues/3).
 
 ```bash
 claude plugin marketplace add johantor/plugins
@@ -19,152 +15,68 @@ claude plugin install brain@johantor
 
 Site: <https://johantor.github.io/brain/>
 
-## What it records
-
-| Signal | Source |
-|---|---|
-| Your prompts, scrubbed | `UserPromptSubmit` |
-| Failing tool calls: the tool, the program a Bash call ran, the exit code | `PostToolUseFailure` |
-| Denied permission dialogs: a request whose call never ran | `PermissionRequest`, `PostToolUse` |
-| Which agent made a call: a subagent, or a session started with `--agent`, scrubbed | Each hook's `agent_type` |
-| Session end, and sessions that went quiet for 12 hours without one | `SessionEnd`, the transcript scan |
-| Token use (each reply counted once, subagents included), interrupts, model, version | The transcript scan |
-
-Tool output is never stored, not even an error's text past its exit code. A fetched page therefore
-cannot plant text that a later reflection reads.
-
-Ended sessions go into a queue for reflection. An entry is dropped after 7 days, and a record
-after 90.
-
-## Quick start
-
-Use Claude Code as usual. After a few sessions, run:
-
-```
-/brain:report
-```
-
-It prints one row per project (sessions, prompts, failures, denials, interrupts, tokens out),
-the calls that failed twice or more in one session, and the queue. Once a subagent or an
-`--agent` session made a call, it also splits calls, failures and denials by agent;
-`(main/unknown)` holds the main session and calls recorded without an agent. `--days <n>` changes the
-window; the default is 14.
-
-## Asking about your sessions
-
-Ask in plain words: "what keeps failing in this repo?", "where do my tokens go?", "which skills
-should I create?". The `brain` skill queries the records through a read-only connection and
-answers with counts and dates, then a suggestion. It reads the current project only, unless you
-ask across projects. It suggests; it creates nothing.
-
-## Learning
-
-Learning is on from install. The first session says so once; `/brain:learn off` stops it, and
-`/brain:learn on` turns it back on.
-
-brain watches for friction that you caused: a denied permission, or a prompt that pushes back
-("no, …", "wrong", "undo"). At the first turn after it that ends clean, the Stop hook asks Claude
-to reflect: the `reflect` skill drafts at most two lessons from your own words and hands them to
-`brain propose`, which scrubs them, checks them and stores them. A failed call alone starts no
-reflection: with none of your words to learn from, it would only spend tokens. A reflection costs
-tokens in the session that runs it, at most 3 per session; `/brain:report` shows the average cost.
-
-From the next session on, each session and each subagent starts with this project's lessons,
-then the global ones, newest first, up to about 1,000 tokens each. They are background: your
-`CLAUDE.md` and your messages win, and Claude cites a lesson's ID, such as (L12), when one changes what it does. A session
-starts with one line that names new lessons. `~/.claude/brain/learned.md` lists the global
-lessons; the `brain` skill lists all of them.
-
-You stay in charge of every lesson:
-
-| To | Do |
-|---|---|
-| Review every lesson: keep, pin or forget | `/brain:lessons` |
-| Stop a lesson for good | `/brain:forget L12`, or say "forget that lesson" |
-| Reverse brain's latest change | `/brain:undo` |
-
-`/brain:lessons` lists each live lesson with its evidence: how often a session or a subagent cited
-it, and how often a reflection found its mistake again despite it. It suggests Pin for a lesson
-cited twice and never repeated, and Forget for one repeated as often as it is cited, then asks
-you about each one. `/brain:report` sums the same signals.
-
-Every lesson loads in every session it applies to. brain retires one on its own only when it is a
-project lesson whose project has had no session for 90 days; a pinned lesson never, and
-`/brain:undo` brings an archived one back.
-
-Ask "what should go in my global CLAUDE.md?" and brain lists the auto-memory entries that Claude
-Code keeps in two or more of your projects. It suggests them; it never edits `CLAUDE.md` or auto
-memory.
-
-When three lessons name the same tool, brain asks Claude at a clean stop to merge them into one
-skill, at most once a week per tool. The draft waits 3 days, then goes live as
-`~/.claude/skills/brain-<name>/`, unless you forget one of its lessons first; `/brain:forget S<n>`
-stops it at any time. A brain skill nobody calls for 30 days is removed. There are at most 5, and brain never changes a skill it did not write.
-
-A session starts with one line that lists what changed since the last one. Every change is also
-in `~/.claude/brain/changes.log`.
-
 ## How it works
 
-1. Hooks on 7 events run `hooks/capture.sh`, which hands the payload to Node. Node writes rows to
-   `~/.claude/brain/brain.db`, a SQLite file. Four hooks run in the foreground for up to 5
-   seconds: `SessionEnd`, so its row lands before Claude Code exits, `Stop`, which decides on
-   reflection, and `UserPromptSubmit` and `PostToolUseFailure`, so their rows land before that
-   decision. A fifth, `hooks/load.sh` at `SessionStart` and `SubagentStart`, prints the lessons
-   to load. None fails a session: no Node, a bad payload or a locked database all exit 0.
-   Errors go to `~/.claude/brain/errors.log`.
-2. At each `SessionStart`, brain reads every transcript under `~/.claude/projects` that changed
-   since its last read, whole, with the subagents' transcripts. The first run reads the last 90
-   days, so the records start with your history.
+1. **It records.** Hooks write your prompts (scrubbed), failed calls, denied permissions and token
+   use to a local SQLite file. Tool output is never stored.
+2. **It reflects.** After you correct Claude ("no, …", "wrong") or deny a permission, the next
+   clean stop asks Claude to draft at most two lessons from your own words.
+3. **It loads.** Each session and each subagent starts with the project's lessons, then the global
+   ones. Claude cites a lesson as (L12) when it changes what Claude does.
+4. **You decide.** `/brain:lessons` shows how often each lesson was cited and how often its
+   mistake happened again, and asks you to keep, pin or forget it.
+
+Learning is on from install. `/brain:learn off` stops the drafting and the loading; the records
+continue. Details: [docs/learning.md](docs/learning.md) and [docs/records.md](docs/records.md).
+
+## Commands
+
+| Command | What it does |
+|---|---|
+| `/brain:report [--days N]` | Sessions, failures, denials and tokens per project and per agent, and lesson evidence. |
+| `/brain:lessons` | Review each lesson with its evidence: keep, pin or forget. |
+| `/brain:forget L12` | Stop a lesson for good. `S<n>` removes a brain skill. |
+| `/brain:undo` | Reverse brain's latest change to a lesson. |
+| `/brain:learn on\|off` | Turn learning on or off. |
+
+You can also ask in plain words: "what keeps failing in this repo?", "where do my tokens go?",
+"what should go in my global CLAUDE.md?". The `brain` skill answers from the records, read-only.
 
 ## Privacy
 
-Prompts can hold client code and secrets. brain keeps them on your machine and sends nothing
-anywhere.
-
-- **Scrubbed before storage.** Secrets (common token formats, private keys, `password=` and
-  similar pairs), URLs, e-mail addresses, absolute paths, IP addresses, host names, and the
-  project's folder, repo and remote names become placeholders such as `<path>`.
-- **Yours alone.** `~/.claude/brain` is mode 700, and its files 600.
-- **Nothing in the cloud.** In a Claude Code cloud session (`CLAUDE_CODE_REMOTE=true`), the hooks
-  exit at once. The container is thrown away, so its records would be lost anyway.
-- **What stays raw:** each session's working directory, so the report can name the project.
+brain keeps your records on your machine and sends nothing anywhere. It scrubs secrets, URLs,
+paths and project names before it stores a prompt, and it never stores tool output. Details:
+[SECURITY.md](SECURITY.md).
 
 ## Requirements
 
 - [Claude Code](https://code.claude.com/docs/en/overview) with plugin support.
-- Node.js 22.13 or later on the `PATH` that Claude Code's hooks see, for `node:sqlite`. No
-  packages to install. With an older Node, the hooks do nothing.
+- Node.js 22.13 or later on the `PATH` that Claude Code's hooks see, for `node:sqlite`. With an
+  older Node, the hooks do nothing.
 - On Windows, Git for Windows, so that `capture.sh` runs in Git Bash.
 
-| Setting | Default | Effect |
-|---|---|---|
-| `CLAUDE_BRAIN_DIR` | `~/.claude/brain` | Where `brain.db` and `errors.log` live. |
-| `CLAUDE_CONFIG_DIR` | `~/.claude` | Where the transcripts are read from. |
-
-Uninstalling leaves `~/.claude/brain`. Delete it to remove the records.
+`CLAUDE_BRAIN_DIR` (default `~/.claude/brain`) sets where the records live, and
+`CLAUDE_CONFIG_DIR` (default `~/.claude`) where the transcripts are read from. Uninstalling leaves
+`~/.claude/brain`; delete it to remove the records.
 
 ## Known gaps
 
 - The scrubber works from pattern lists. A secret in an unknown format, a host under an unlisted
   top-level domain, or a client name that is not the folder, repo or remote name stays in the text.
-- A path is scrubbed from two segments up: `/client` alone stays, since it looks like a slash
+  A path is scrubbed from two segments up: `/client` alone stays, since it looks like a slash
   command. A path with a space keeps the part after the space.
-- A correction is spotted by its first words ("no", "wrong", "actually"). A correction worded
-  otherwise starts no reflection, and "no worries" starts one that drafts nothing.
+- A correction is spotted by its first words ("no", "wrong", "actually"). One worded otherwise
+  starts no reflection, and "no worries" starts one that drafts nothing.
 - An approved call that is still running, or an identical call that runs once after two requests,
   counts as a denial until it finishes.
 - `brain propose` cannot prove that a lesson's words came from you and not from a page Claude
   read. It blocks the forms an injected rule takes (scripts, URLs, paths, commands with
-  arguments) and stores no other text from the session. A draft loads only once you turn loading
-  on, and the line at each session start lists new drafts.
-- brain does not prove that a lesson helps. `/brain:lessons` shows two signals per lesson: how
-  often a session or subagent cited it, and how often a reflection found its mistake again. A
-  lesson that prevents a mistake without a citation shows nothing, and a repeat is found only
-  after a correction or a denied call. A citation does not say which subagent made it.
-- Lessons are grouped into a skill by the tool their code spans name, not by subject. A skill
-  that does not trigger is retired after 30 days; brain does not rewrite its description, and it
-  does not draft repo skills for colleagues.
+  arguments), and the line at each session start lists new lessons.
+- brain does not prove that a lesson helps. A lesson that prevents a mistake without a citation
+  shows nothing, a repeat is found only after a correction or a denied call, and a citation does
+  not say which subagent made it.
+- Lessons are grouped into a skill by the tool they name, not by subject. brain does not rewrite a
+  skill that does not trigger; it retires it after 30 days.
 - The transcript format is not documented. A Claude Code update can break the scan; the hooks keep
   working.
 - Node prints that `node:sqlite` is experimental. The hook hides the warning; the API could
@@ -172,9 +84,11 @@ Uninstalling leaves `~/.claude/brain`. Delete it to remove the records.
 
 ## Documentation
 
+- [docs/learning.md](docs/learning.md): reflection, loading, reviewing lessons, brain skills.
+- [docs/records.md](docs/records.md): what is recorded, the report, the hooks and the scan.
 - [AGENTS.md](AGENTS.md): contributing, validating and releasing.
+- [SECURITY.md](SECURITY.md): how brain protects your data, and how to report a vulnerability.
 - [CONTRIBUTING.md](CONTRIBUTING.md) and [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md).
-- [SECURITY.md](SECURITY.md): reporting a vulnerability.
 - [board](https://github.com/johantor/board): every Claude Code session on one local board.
 
 ## License
