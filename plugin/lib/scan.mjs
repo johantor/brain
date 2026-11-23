@@ -17,13 +17,17 @@ const CITE = /\(L(\d+)\)/g;
 // Bumped when the scan reads something new, so an upgrade rereads every retained transcript once.
 const SIG = 'v2|';
 
+// A subagent's transcript is subagents/agent-<id>.jsonl; the hook's agent_id may carry the
+// prefix or not, so both sides drop it. Anything else is not an id and is not kept.
+export const agentId = (id) => (typeof id === 'string' && /^[\w-]{1,64}$/.test(id) ? id.replace(/^agent-/, '') : null);
+
 function textOf(content) {
   if (typeof content === 'string') return content;
   if (!Array.isArray(content)) return '';
   return content.filter((b) => b?.type === 'text' && typeof b.text === 'string').map((b) => b.text).join(' ');
 }
 
-async function readFile(file, acc, main) {
+async function readFile(file, acc, main, label) {
   const lines = readline.createInterface({ input: fs.createReadStream(file), crlfDelay: Infinity });
   for await (const raw of lines) {
     let line;
@@ -43,7 +47,7 @@ async function readFile(file, acc, main) {
     if (line.type === 'assistant' && typeof msg?.id === 'string' && msg.usage) acc.usage.set(msg.id, { u: msg.usage, t });
     // Once per reply and lesson: a reply's lines repeat its id.
     if (line.type === 'assistant' && t) {
-      for (const [, id] of textOf(msg?.content).matchAll(CITE)) acc.cites.set(`${msg?.id ?? t}:${id}`, { lesson: Number(id), t, sub: !main });
+      for (const [, id] of textOf(msg?.content).matchAll(CITE)) acc.cites.set(`${msg?.id ?? t}:${id}`, { lesson: Number(id), t, label });
     }
     if (!main) continue;
     if (line.type === 'assistant' && typeof msg?.model === 'string' && !msg.model.startsWith('<')) acc.model = msg.model;
@@ -53,9 +57,10 @@ async function readFile(file, acc, main) {
   }
 }
 
-export async function readSession(files) {
+// `labels` names each file's agent for its citations: `main`, a subagent's type, or `subagent`.
+export async function readSession(files, labels = files.map((_, i) => (i ? 'subagent' : 'main'))) {
   const acc = { usage: new Map(), cites: new Map(), interrupts: 0 };
-  for (const [i, file] of files.entries()) await readFile(file, acc, i === 0);
+  for (const [i, file] of files.entries()) await readFile(file, acc, i === 0, labels[i]);
   const sum = (...keys) => [...acc.usage.values()].reduce((n, { u }) => n + keys.reduce((m, k) => m + (Number(u[k]) || 0), 0), 0);
   return {
     cwd: acc.cwd ?? null,
@@ -88,11 +93,17 @@ function costReflections(db, sid, replies) {
 }
 
 // A file is reread whole, so its citations replace the earlier ones. `text` says where the
-// citation was: the main session or a subagent, whose type the transcript does not name.
+// citation was: `main`, the subagent's type, or `subagent` when no hook named it.
 function storeCites(db, sid, cites) {
   db.prepare("DELETE FROM events WHERE sid = ? AND kind = 'cite'").run(sid);
   const add = db.prepare("INSERT INTO events (sid, ts, kind, code, text) VALUES (?, ?, 'cite', ?, ?)");
-  for (const c of cites) add.run(sid, c.t, c.lesson, c.sub ? 'subagent' : 'main');
+  for (const c of cites) add.run(sid, c.t, c.lesson, c.label);
+}
+
+// The transcript does not name a subagent's type; the hooks recorded it by agent id.
+function labels(db, sid, files) {
+  const type = db.prepare('SELECT type FROM agents WHERE sid = ? AND id = ?');
+  return files.map((f, i) => (i ? type.get(sid, agentId(path.basename(f, '.jsonl')) ?? '')?.type ?? 'subagent' : 'main'));
 }
 
 // Hooks own cwd and start; the transcript owns what only it knows.
@@ -144,7 +155,7 @@ export async function scan(db, dir = projectsDir(), now = Date.now()) {
       if (stats[0].mtimeMs < since) continue;
       const sig = `${SIG}${stats.map((s) => `${s.mtimeMs}:${s.size}`).join(',')}`;
       if (known.get(sid)?.sig === sig) continue;
-      const s = await readSession(files);
+      const s = await readSession(files, labels(db, sid, files));
       tx(db, () => {
         db.prepare(UPSERT).run(sid, s.cwd, s.first, s.last, s.model, s.version, s.tokensIn, s.tokensCached, s.tokensOut, s.interrupts);
         db.prepare('INSERT INTO transcripts (sid, sig) VALUES (?, ?) ON CONFLICT(sid) DO UPDATE SET sig = excluded.sig').run(sid, sig);

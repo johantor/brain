@@ -57,7 +57,7 @@ const EVIDENCE = `
   SELECT l.id, l.status, l.scope, l.project, l.kind, l.created, l.description,
     coalesce(c.cited, 0) AS cited, coalesce(c.sub, 0) AS sub, coalesce(r.repeated, 0) AS repeated
   FROM lessons l
-  LEFT JOIN (SELECT code, count(*) AS cited, sum(text = 'subagent') AS sub FROM events WHERE kind = 'cite' GROUP BY code) c ON c.code = l.id
+  LEFT JOIN (SELECT code, count(*) AS cited, sum(text != 'main') AS sub FROM events WHERE kind = 'cite' GROUP BY code) c ON c.code = l.id
   LEFT JOIN (SELECT code, count(*) AS repeated FROM events WHERE kind = 'repeat' GROUP BY code) r ON r.code = l.id
   WHERE l.status != 'deprecated' ORDER BY l.id`;
 
@@ -72,13 +72,16 @@ export function suggest(l) {
 
 const times = (n) => `${n} time${n === 1 ? '' : 's'}`;
 
+// Subagent citations per agent: `crew:frontend 2, subagent 1`, `subagent` when no hook named it.
+const BY_AGENT = "SELECT text, count(*) AS n FROM events WHERE kind = 'cite' AND code = ? AND text != 'main' GROUP BY text ORDER BY n DESC, text";
+
 export function list(db, now = Date.now()) {
   const rows = db.prepare(EVIDENCE).all();
   if (!rows.length) return 'brain: no live lessons';
   return rows.map((l) => {
     const where = l.scope === 'global' ? 'global' : `project ${path.basename(l.project ?? '')}`;
     const age = Math.floor((now - l.created) / DAY);
-    const sub = l.sub ? ` (${l.sub} in subagents)` : '';
+    const sub = l.sub ? ` (${l.sub} in subagents: ${db.prepare(BY_AGENT).all(l.id).map((a) => `${a.text} ${a.n}`).join(', ')})` : '';
     return `L${l.id} ${l.status === 'stable' ? 'pinned' : l.status}, ${where} ${l.kind}, ${age} days old: cited ${times(l.cited)}${sub}, repeated ${times(l.repeated)}. Suggest: ${suggest(l)}\n  ${l.description}`;
   }).join('\n');
 }
