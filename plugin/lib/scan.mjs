@@ -14,6 +14,8 @@ export const IDLE_MS = 12 * 3_600_000;
 const INTERRUPT = '[Request interrupted by user';
 // load.mjs asks Claude to cite a lesson that changes what it does as (L12).
 const CITE = /\(L(\d+)\)/g;
+// Bumped when the scan reads something new, so an upgrade rereads every retained transcript once.
+const SIG = 'v2|';
 
 function textOf(content) {
   if (typeof content === 'string') return content;
@@ -140,7 +142,7 @@ export async function scan(db, dir = projectsDir(), now = Date.now()) {
     try {
       const stats = files.map((f) => fs.statSync(f));
       if (stats[0].mtimeMs < since) continue;
-      const sig = stats.map((s) => `${s.mtimeMs}:${s.size}`).join(',');
+      const sig = `${SIG}${stats.map((s) => `${s.mtimeMs}:${s.size}`).join(',')}`;
       if (known.get(sid)?.sig === sig) continue;
       const s = await readSession(files);
       tx(db, () => {

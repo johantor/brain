@@ -41,8 +41,13 @@ export function pin(db, id, now = Date.now()) {
 // A lesson's mistake happened again: the reflect skill judged that friction in `sid` is one a
 // loaded lesson covers. One `repeat` event, with the lesson id in `code`.
 export function repeat(db, id, sid, now = Date.now()) {
-  if (!lessonRow(db, id)) return `no lesson L${id}`;
-  if (!db.prepare('SELECT 1 FROM sessions WHERE sid = ?').get(sid)) return `no session ${sid}`;
+  const l = db.prepare('SELECT created FROM lessons WHERE id = ?').get(id);
+  if (!l) return `no lesson L${id}`;
+  const s = db.prepare('SELECT started FROM sessions WHERE sid = ?').get(sid);
+  if (!s) return `no session ${sid}`;
+  // Only a lesson that existed at the session's start was loaded there: a queued, older session
+  // cannot have repeated a newer lesson.
+  if (!(s.started >= l.created)) return `L${id} was not loaded in session ${sid}: no repeat recorded`;
   db.prepare("INSERT INTO events (sid, ts, kind, code) VALUES (?, ?, 'repeat', ?)").run(sid, now, id);
   return `recorded that the mistake of L${id} happened again`;
 }

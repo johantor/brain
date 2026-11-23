@@ -92,7 +92,7 @@ Paths in *Map* and *Gotchas* are relative to `plugin/`, the directory users inst
   `list` prints each live lesson with its `cite` and `repeat` counts and `suggest()`'s choice;
   `/brain:lessons` asks the user per lesson and applies it (there is no pin command). `repeat`
   adds a `repeat` event (lesson id in `code`), which the reflect skill runs when a loaded lesson
-  covers the friction. `writeLearned()` writes `learned.md`,
+  covers the friction; it refuses a lesson created after the session started. `writeLearned()` writes `learned.md`,
   a read-only view of the global lessons; with `learn` on, the async `SessionStart` capture runs
   it before its scan. Hand edits are overwritten: they would race between sessions and skip the
   checks `propose.mjs` makes (#14).
@@ -125,7 +125,8 @@ Paths in *Map* and *Gotchas* are relative to `plugin/`, the directory users inst
   `<sid>/subagents/*.jsonl` whole, only when the signature changed, only within 90 days. Tokens
   are summed once per `message.id`; interrupts are user lines that start with
   `[Request interrupted by user`; each `(L<n>)` in assistant text is one `cite` event per reply
-  and lesson (`code` the id, `text` `main` or `subagent`), replaced on each reread; model and version come from the main transcript. Hooks own
+  and lesson (`code` the id, `text` `main` or `subagent`), replaced on each reread (`SIG`'s
+  prefix is bumped when the scan reads something new, so an upgrade rereads once); model and version come from the main transcript. Hooks own
   `cwd` and `started`. Then queues sessions with no `ended` and silent for 12 hours (`no-end`),
   and prunes.
 - `lib/report.mjs` and `commands/report.md`: `/brain:report [--days N]`, one row per project

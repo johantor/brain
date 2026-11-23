@@ -76,9 +76,12 @@ test('the notice lists changes since the last one', (t) => {
 
 test('repeat records that a lesson\'s mistake happened again, for a known lesson and session', (t) => {
   const { db } = setup(t);
-  assert.match(repeat(db, 1, 's1', NOW + 1), /mistake of L1 happened again/);
+  record(db, { session_id: 's2', cwd: '/w/shop', hook_event_name: 'SessionStart' }, NOW + 1);
+  assert.match(repeat(db, 1, 's2', NOW + 1), /mistake of L1 happened again/);
   assert.match(repeat(db, 9, 's1', NOW + 1), /no lesson L9/);
   assert.match(repeat(db, 1, 'nope', NOW + 1), /no session nope/);
+  record(db, { session_id: 'old', cwd: '/w/shop', hook_event_name: 'SessionStart' }, NOW - 1);
+  assert.match(repeat(db, 1, 'old', NOW + 1), /not loaded in session old/, 'the lesson is newer than the session');
   assert.equal(db.prepare("SELECT count(*) AS n FROM events WHERE kind = 'repeat' AND code = 1").get().n, 1);
 });
 
@@ -87,7 +90,8 @@ test('list shows each live lesson with its citations, repeats and a suggestion',
   const cite = db.prepare("INSERT INTO events (sid, ts, kind, code, text) VALUES ('s1', ?, 'cite', ?, ?)");
   cite.run(NOW, 2, 'main');
   cite.run(NOW, 2, 'subagent');
-  repeat(db, 1, 's1', NOW);
+  record(db, { session_id: 's2', cwd: '/w/shop', hook_event_name: 'SessionStart' }, NOW);
+  repeat(db, 1, 's2', NOW);
   const out = list(db, NOW + 3 * DAY);
   assert.match(out, /^L1 draft, global method-error, 3 days old: cited 0 times, repeated 1 time\. Suggest: forget\n {2}Read the failing log/m);
   assert.match(out, /^L2 draft, global method-error, 3 days old: cited 2 times \(1 in subagents\), repeated 0 times\. Suggest: pin$/m);

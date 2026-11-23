@@ -213,6 +213,10 @@ test('scan counts each lesson citation once per reply, apart for subagents, and 
   fs.appendFileSync(path.join(pdir, 's1.jsonl'), `${JSON.stringify(cite('m3', t0 + 4, '(L4)'))}\n`);
   await scan(db, dir, NOW);
   assert.equal(rows().length, 4, 'a reread replaces the citations, it does not add them twice');
+  db.prepare("UPDATE transcripts SET sig = substr(sig, 4)").run();
+  db.prepare("DELETE FROM events WHERE kind = 'cite'").run();
+  await scan(db, dir, NOW);
+  assert.equal(rows().length, 4, 'a signature from before the bump is reread');
 });
 
 test('scan keeps what hooks recorded and rereads only changed transcripts', async () => {

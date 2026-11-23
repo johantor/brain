@@ -19,6 +19,8 @@ one) had friction, and the trouble is now over. Work out what to learn, briefly.
    node --disable-warning=ExperimentalWarning "${CLAUDE_PLUGIN_ROOT}/lib/manage.mjs" repeat L<n> <session id>
    ```
 
+   It refuses a lesson that did not exist when that session started. Then go on to step 3.
+
 3. **Decide whether there is a lesson.** Most episodes teach nothing new: a typo, a flaky network,
    a one-off. Then propose nothing. At most two lessons per reflection.
 4. **Write each lesson as one statement**: what to do or avoid, in which situation, and why. State
