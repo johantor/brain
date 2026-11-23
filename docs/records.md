@@ -4,7 +4,7 @@
 
 | Signal | Source |
 |---|---|
-| Your prompts, scrubbed | `UserPromptSubmit` |
+| Your prompts, scrubbed, and whether the turn before was interrupted | `UserPromptSubmit`, `Stop`, `StopFailure` |
 | Failing tool calls: the tool, the program a Bash call ran, the exit code | `PostToolUseFailure` |
 | Denied permission dialogs: a request whose call never ran | `PermissionRequest`, `PostToolUse` |
 | Which agent made a call: a subagent, or a session started with `--agent`, scrubbed | Each hook's `agent_type` |
@@ -33,11 +33,12 @@ ask across projects. It suggests; it creates nothing.
 
 ## Hooks and the scan
 
-1. Hooks on 7 events run `hooks/capture.sh`, which hands the payload to Node. Node writes rows to
-   `~/.claude/brain/brain.db`, a SQLite file. Four hooks run in the foreground for up to 5
+1. Hooks on 8 events run `hooks/capture.sh`, which hands the payload to Node. Node writes rows to
+   `~/.claude/brain/brain.db`, a SQLite file. Five hooks run in the foreground for up to 5
    seconds: `SessionEnd`, so its row lands before Claude Code exits, `Stop`, which decides on
-   reflection, and `UserPromptSubmit` and `PostToolUseFailure`, so their rows land before that
-   decision. A fifth, `hooks/load.sh` at `SessionStart` and `SubagentStart`, prints the lessons
+   reflection, `UserPromptSubmit` and `PostToolUseFailure`, so their rows land before that
+   decision, and `StopFailure`, so a turn that ended in an API error is not read as interrupted.
+   A sixth, `hooks/load.sh` at `SessionStart` and `SubagentStart`, prints the lessons
    to load. None fails a session: no Node, a bad payload or a locked database all exit 0.
    Errors go to `~/.claude/brain/errors.log`.
 2. At each `SessionStart`, brain reads every transcript under `~/.claude/projects` that changed

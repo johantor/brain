@@ -19,8 +19,9 @@ Site: <https://johantor.github.io/brain/>
 
 1. **It records.** Hooks write your prompts (scrubbed), failed calls, denied permissions and token
    use to a local SQLite file. Tool output is never stored.
-2. **It reflects.** After you correct Claude ("no, …", "wrong") or deny a permission, the next
-   clean stop asks Claude to draft at most two lessons from your own words.
+2. **It reflects.** After you correct Claude ("no, …", "wrong"), press Esc and say something else,
+   or deny a permission, the next clean stop asks Claude to draft at most two lessons from your
+   own words.
 3. **It loads.** Each session and each subagent starts with the project's lessons, then the global
    ones. Claude cites a lesson as (L12) when it changes what Claude does.
 4. **You decide.** `/brain:lessons` shows how often each lesson was cited and how often its
@@ -65,8 +66,9 @@ paths and project names before it stores a prompt, and it never stores tool outp
   top-level domain, or a client name that is not the folder, repo or remote name stays in the text.
   A path is scrubbed from two segments up: `/client` alone stays, since it looks like a slash
   command. A path with a space keeps the part after the space.
-- A correction is spotted by its first words ("no", "wrong", "actually"). One worded otherwise
-  starts no reflection, and "no worries" starts one that drafts nothing.
+- A correction is spotted by its first words ("no", "wrong", "actually") or by an Esc before it.
+  One worded otherwise after a turn that finished starts no reflection. "no worries", or a message
+  sent while Claude is still working, can start one that drafts nothing.
 - An approved call that is still running, or an identical call that runs once after two requests,
   counts as a denial until it finishes.
 - `brain propose` cannot prove that a lesson's words came from you and not from a page Claude

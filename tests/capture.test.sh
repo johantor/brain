@@ -67,10 +67,11 @@ if [ "$(mode "$db")" = "600" ]; then _pass; else _fail "brain.db mode is $(mode 
 if [ "$(mode "$CLAUDE_BRAIN_DIR")" = "700" ]; then _pass; else _fail "brain dir mode is $(mode "$CLAUDE_BRAIN_DIR"), expected 700"; fi
 
 # Foreground hooks, each with a timeout: SessionEnd lands before the process exits, Stop
-# decides on reflection, the two friction events land before their turn's Stop does, and
-# SubagentStart loads the lessons into a subagent.
+# decides on reflection, the two friction events land before their turn's Stop does,
+# StopFailure lands before the next prompt asks whether its turn ended, and SubagentStart
+# loads the lessons into a subagent.
 wiring="$(dirname "${BASH_SOURCE[0]}")/../plugin/hooks/hooks.json"
-sync='["PostToolUseFailure","SessionEnd","Stop","SubagentStart","UserPromptSubmit"]'
+sync='["PostToolUseFailure","SessionEnd","Stop","StopFailure","SubagentStart","UserPromptSubmit"]'
 if jq -e --argjson s "$sync" '[.hooks | to_entries[] | select(.value[0].hooks[0] | (.async != true) and (.timeout | type == "number")) | .key] | sort == $s' "$wiring" >/dev/null; then
   _pass
 else

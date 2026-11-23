@@ -5,8 +5,8 @@ Learning is on from install. The first session says so once; `/brain:learn off` 
 
 ## Reflection
 
-brain watches for friction that you caused: a denied permission, or a prompt that pushes back
-("no, …", "wrong", "undo"). At the first turn after it that ends clean, the Stop hook asks Claude
+brain watches for friction that you caused: a denied permission, a prompt that pushes back
+("no, …", "wrong", "undo"), or any prompt after you pressed Esc to stop a turn. At the first turn after it that ends clean, the Stop hook asks Claude
 to reflect. The `reflect` skill then does one of two things:
 
 - If a lesson already loaded covers the mistake, it records a **repeat** of that lesson.

@@ -45,10 +45,10 @@ not the shell, and nothing is pushed until the operator runs `/crew:pr`.
 
 Paths in *Map* and *Gotchas* are relative to `plugin/`, the directory users install.
 
-- `hooks/capture.sh`: the one hook, wired on 7 events in `hooks/hooks.json`. Synchronous with
+- `hooks/capture.sh`: the one hook, wired on 8 events in `hooks/hooks.json`. Synchronous with
   `timeout: 5`: `SessionEnd` (its row lands before the process exits), `Stop` (it decides on
   reflection), `UserPromptSubmit` and `PostToolUseFailure` (their rows land before their turn's
-  `Stop`). The rest are async; `capture.test.sh` asserts the split. Exits at once when
+  `Stop`), `StopFailure` (its row lands before the next prompt asks whether its turn ended). The rest are async; `capture.test.sh` asserts the split. Exits at once when
   `CLAUDE_CODE_REMOTE=true`. Runs `node --disable-warning=ExperimentalWarning lib/capture.mjs`
   and always exits 0.
 - `hooks/load.sh` and `lib/load.mjs`: a second `SessionStart` hook, and the `SubagentStart`
@@ -101,7 +101,9 @@ Paths in *Map* and *Gotchas* are relative to `plugin/`, the directory users inst
   Each row keeps `agent`, the payload's `agent_type` scrubbed like a skill name (null in
   the main session, before 0.13.0, or when scrubbed away), so friction splits by agent. A
   payload with both keeps its `agent_id` (`agentId()`: no `agent-` prefix) and type in `agents`.
-  Kinds: `prompt` (scrubbed text, at most 2000 characters), `tool_ok`, `tool_fail` (`code` from
+  Kinds: `prompt` (scrubbed text, at most 2000 characters; `code` 1 when `afterInterrupt()`: no
+  `stop` since the previous prompt, as Esc fires neither `Stop` nor `StopFailure`), `stop` (each
+  `Stop` and `StopFailure`), `tool_ok`, `tool_fail` (`code` from
   `Exit code N`, `text` the Bash program name only, scrubbed), `permission` (not for
   `AskUserQuestion`: a question is not a permission). Any new activity
   drops the session's `no-end` queue entry. `call` is board's hash of tool
@@ -153,8 +155,8 @@ Paths in *Map* and *Gotchas* are relative to `plugin/`, the directory users inst
   becomes a project lesson, and its code spans may hold only a tool and flags. `store()` needs
   every session in the records and in the proposing project, and refuses a repeat (`key`: scope,
   project and normalized text, checked inside the write transaction). It writes a `draft`.
-- `lib/reflect.mjs`: `decide(db, payload, { enabled })` for `Stop`. Friction is `denials` and
-  `CORRECTION` prompts after the session's last `reflect` row, not `tool_fail` (no words of the
+- `lib/reflect.mjs`: `decide(db, payload, { enabled })` for `Stop`. Friction is `denials`,
+  `CORRECTION` prompts and prompts after an interrupt (`code` 1) after the session's last `reflect` row, not `tool_fail` (no words of the
   user to learn from). It asks when there is friction and none inside this turn (a correction opens its own turn), else, in a clean
   session, for one queued session of the same project. Skips when off, on `stop_hook_active`,
   with `background_tasks`, or after 3 per session. `capture.mjs` runs it in one transaction, so

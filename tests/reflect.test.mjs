@@ -23,7 +23,12 @@ function session(db, sid = 's1', cwd = '/w/shop') {
     fail: () => hook({ hook_event_name: 'PostToolUseFailure', tool_name: 'Bash', tool_input: { command: 'npm test' }, error: 'Exit code 1' }),
     ok: () => hook({ hook_event_name: 'PostToolUse', tool_name: 'Bash', tool_input: { command: 'npm test -- --fix' } }),
     deny: (agent_type) => hook({ hook_event_name: 'PermissionRequest', tool_name: 'Bash', tool_input: { command: 'rm -rf dist' }, agent_type }),
-    stop: (extra = {}) => decide(db, { session_id: sid, ...extra }, { enabled: true, now: (t += 1000) }),
+    // As capture.mjs does: the Stop row first, then the decision.
+    stop: (extra = {}) => {
+      hook({ hook_event_name: 'Stop' });
+      return decide(db, { session_id: sid, ...extra }, { enabled: true, now: (t += 1000) });
+    },
+    esc: () => (t += 1000),
   };
 }
 
@@ -46,6 +51,7 @@ test('a failed call alone starts no reflection: there are no words of the user t
   const s = session(db);
   s.prompt('add a cart');
   s.fail();
+  assert.equal(s.stop(), null);
   s.prompt('try again');
   s.ok();
   assert.equal(s.stop(), null);
@@ -71,9 +77,24 @@ test('a denial in a subagent names the agent, which the user never sees', () => 
   const s = session(db);
   s.prompt('build the page');
   s.deny('crew:frontend');
+  assert.equal(s.stop(), null, 'the denial is in this turn');
   s.prompt('go on');
   s.ok();
   assert.equal(s.stop(), 'brain: reflect on this session s1: a denied Bash call by crew:frontend. Use the brain:reflect skill.');
+});
+
+test('a prompt after an interrupted turn is a correction, whatever its words', () => {
+  const db = freshDb();
+  const s = session(db);
+  s.prompt('add a cart');
+  s.ok();
+  s.esc();
+  s.prompt('use the shared button component instead');
+  s.ok();
+  assert.equal(s.stop(), 'brain: reflect on this session s1: an interrupt and a new instruction from the user. Use the brain:reflect skill.');
+  s.prompt('thanks, next task');
+  s.ok();
+  assert.equal(s.stop(), null, 'a turn that ended with Stop is no interrupt');
 });
 
 test('a correction opens its turn, so that turn can end clean', () => {

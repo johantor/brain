@@ -11,13 +11,14 @@ export const MAX_PER_SESSION = 3;
 // reflection itself judges whether there was a lesson.
 export const CORRECTION = /^\s*(no|nope|not that|wrong|stop|don'?t|actually|that'?s not|that is not|undo|revert|why did you)\b/i;
 
-// Friction in one session after `since`: denied permissions and corrections, each as
-// { kind, ts, what }. A failed call alone is not friction: a lesson comes from the user's
+// Friction in one session after `since`: denied permissions, corrections and prompts after an
+// interrupt (`code` 1, capture.mjs), each as { kind, ts, what }. A failed call alone is not friction: a lesson comes from the user's
 // words, so a reflection with none to read stores nothing and only spends tokens.
 export function friction(db, sid, since) {
   const rows = db.prepare(`
     SELECT 'denial' AS kind, ts, tool AS what, NULL AS prompt, agent FROM denials WHERE sid = $sid AND ts > $since
-    UNION ALL SELECT 'correction', ts, NULL, text, NULL FROM events WHERE sid = $sid AND kind = 'prompt' AND ts > $since
+    UNION ALL SELECT CASE code WHEN 1 THEN 'interrupt' ELSE 'correction' END, ts, NULL, text, NULL
+      FROM events WHERE sid = $sid AND kind = 'prompt' AND ts > $since
     ORDER BY ts`).all({ sid, since });
   return rows.filter((r) => r.kind !== 'correction' || CORRECTION.test(r.prompt ?? ''));
 }
@@ -33,7 +34,9 @@ function describe(items) {
   const counts = {};
   for (const f of items) {
     // Name the subagent: the user does not see its calls, and its mistake may repeat a lesson.
-    const key = f.kind === 'correction' ? 'a correction from the user' : `a denied ${f.what ?? 'tool'} call${f.agent ? ` by ${f.agent}` : ''}`;
+    const key = f.kind === 'correction' ? 'a correction from the user'
+      : f.kind === 'interrupt' ? 'an interrupt and a new instruction from the user'
+        : `a denied ${f.what ?? 'tool'} call${f.agent ? ` by ${f.agent}` : ''}`;
     counts[key] = (counts[key] ?? 0) + 1;
   }
   return Object.entries(counts).map(([k, n]) => (n > 1 ? `${k} (x${n})` : k)).join(', ');
@@ -61,7 +64,7 @@ export function decide(db, payload, { enabled, now = Date.now() }) {
   const items = friction(db, sid, since);
   // A correction opens the turn it starts; anything else inside this turn means the
   // trouble is not over yet.
-  const inTurn = items.some((f) => f.ts > turnStart || (f.ts === turnStart && f.kind !== 'correction'));
+  const inTurn = items.some((f) => f.ts > turnStart || (f.ts === turnStart && f.kind === 'denial'));
   const mark = () => db.prepare("INSERT INTO events (sid, ts, kind) VALUES (?, ?, 'reflect')").run(sid, now);
   if (items.length && !inTurn) {
     mark();
