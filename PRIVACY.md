@@ -16,17 +16,18 @@ The hooks write to `~/.claude/brain/brain.db` (directory mode 700, files mode 60
 and working directory, your prompts with secrets, URLs, e-mail addresses, paths, host names and
 project names scrubbed, the tool name, exit code and Bash program of each failing call, a hash of
 each tool call's input, and timestamps. They never store tool output. At each session start the
-plugin reads the transcripts under `~/.claude/projects` for token counts, interrupts, the model and
-the Claude Code version. Records are deleted after 90 days. Draft lessons are stored as files in
-`~/.claude/brain/lessons/`, scrubbed the same way, and each change to one is logged in
-`~/.claude/brain/changes.log`. Errors go to `~/.claude/brain/errors.log`
-without the hook payload.
+plugin reads the transcripts under `~/.claude/projects` for token counts, interrupts, the model,
+the Claude Code version and lesson citations, of which it keeps only the lesson id. Records are
+deleted after 90 days. Lessons are stored as files in `~/.claude/brain/lessons/`, scrubbed the
+same way, and each change to one is logged in `~/.claude/brain/changes.log`. Errors go to
+`~/.claude/brain/errors.log` without the hook payload.
 
 ## Data that leaves your machine
 
 None, from the plugin. It makes no network requests, and in a Claude Code cloud session it records
-nothing. With loading on (`/brain:learn on`), the lessons for the current project become part of
-the session's context, so Claude Code sends them to Anthropic like the rest of that session. Claude Code itself sends your prompts to Anthropic, under
+nothing. With learning on (the default; `/brain:learn off` stops it), the lessons for the current
+project become part of the session's context, so Claude Code sends them to Anthropic like the rest
+of that session. Claude Code itself sends your prompts to Anthropic, under
 [Anthropic's Privacy Policy](https://www.anthropic.com/legal/privacy), with or without this plugin.
 
 ## Third parties
