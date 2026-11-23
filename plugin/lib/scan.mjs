@@ -1,7 +1,7 @@
 // Reads Claude Code's transcripts (<config>/projects/<project>/<sid>.jsonl, plus
-// <sid>/subagents/*.jsonl) for what no hook reports: token use, interrupts, and
-// sessions that never sent SessionEnd. The format is undocumented, so every field is
-// optional and a line that does not parse is skipped. Only text markers are read,
+// <sid>/subagents/*.jsonl) for what no hook reports: token use, interrupts, lesson
+// citations, and sessions that never sent SessionEnd. The format is undocumented, so every
+// field is optional and a line that does not parse is skipped. Only text markers are read,
 // never tool output.
 import fs from 'node:fs';
 import path from 'node:path';
@@ -12,6 +12,10 @@ import { projectsDir } from './paths.mjs';
 // A session silent this long without a SessionEnd is taken as ended (Esc and close, a crash).
 export const IDLE_MS = 12 * 3_600_000;
 const INTERRUPT = '[Request interrupted by user';
+// load.mjs asks Claude to cite a lesson that changes what it does as (L12).
+const CITE = /\(L(\d+)\)/g;
+// Bumped when the scan reads something new, so an upgrade rereads every retained transcript once.
+const SIG = 'v2|';
 
 function textOf(content) {
   if (typeof content === 'string') return content;
@@ -37,6 +41,10 @@ async function readFile(file, acc, main) {
     const msg = line.message;
     // One reply is written as several lines that repeat its id and usage: count it once.
     if (line.type === 'assistant' && typeof msg?.id === 'string' && msg.usage) acc.usage.set(msg.id, { u: msg.usage, t });
+    // Once per reply and lesson: a reply's lines repeat its id.
+    if (line.type === 'assistant' && t) {
+      for (const [, id] of textOf(msg?.content).matchAll(CITE)) acc.cites.set(`${msg?.id ?? t}:${id}`, { lesson: Number(id), t, sub: !main });
+    }
     if (!main) continue;
     if (line.type === 'assistant' && typeof msg?.model === 'string' && !msg.model.startsWith('<')) acc.model = msg.model;
     if (typeof line.cwd === 'string' && line.cwd) acc.cwd ??= line.cwd;
@@ -46,7 +54,7 @@ async function readFile(file, acc, main) {
 }
 
 export async function readSession(files) {
-  const acc = { usage: new Map(), interrupts: 0 };
+  const acc = { usage: new Map(), cites: new Map(), interrupts: 0 };
   for (const [i, file] of files.entries()) await readFile(file, acc, i === 0);
   const sum = (...keys) => [...acc.usage.values()].reduce((n, { u }) => n + keys.reduce((m, k) => m + (Number(u[k]) || 0), 0), 0);
   return {
@@ -60,6 +68,7 @@ export async function readSession(files) {
     tokensOut: sum('output_tokens'),
     interrupts: acc.interrupts,
     replies: [...acc.usage.values()],
+    cites: [...acc.cites.values()],
   };
 }
 
@@ -76,6 +85,14 @@ function costReflections(db, sid, replies) {
     const tokens = replies.filter((x) => x.t >= r.ts && x.t < end).reduce((n, x) => n + spent(x.u), 0);
     db.prepare('UPDATE events SET code = ? WHERE id = ?').run(tokens, r.id);
   }
+}
+
+// A file is reread whole, so its citations replace the earlier ones. `text` says where the
+// citation was: the main session or a subagent, whose type the transcript does not name.
+function storeCites(db, sid, cites) {
+  db.prepare("DELETE FROM events WHERE sid = ? AND kind = 'cite'").run(sid);
+  const add = db.prepare("INSERT INTO events (sid, ts, kind, code, text) VALUES (?, ?, 'cite', ?, ?)");
+  for (const c of cites) add.run(sid, c.t, c.lesson, c.sub ? 'subagent' : 'main');
 }
 
 // Hooks own cwd and start; the transcript owns what only it knows.
@@ -125,13 +142,14 @@ export async function scan(db, dir = projectsDir(), now = Date.now()) {
     try {
       const stats = files.map((f) => fs.statSync(f));
       if (stats[0].mtimeMs < since) continue;
-      const sig = stats.map((s) => `${s.mtimeMs}:${s.size}`).join(',');
+      const sig = `${SIG}${stats.map((s) => `${s.mtimeMs}:${s.size}`).join(',')}`;
       if (known.get(sid)?.sig === sig) continue;
       const s = await readSession(files);
       tx(db, () => {
         db.prepare(UPSERT).run(sid, s.cwd, s.first, s.last, s.model, s.version, s.tokensIn, s.tokensCached, s.tokensOut, s.interrupts);
         db.prepare('INSERT INTO transcripts (sid, sig) VALUES (?, ?) ON CONFLICT(sid) DO UPDATE SET sig = excluded.sig').run(sid, sig);
         costReflections(db, sid, s.replies);
+        storeCites(db, sid, s.cites);
       });
     } catch {
       // One unreadable transcript must not hide the rest.

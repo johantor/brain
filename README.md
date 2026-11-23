@@ -79,9 +79,14 @@ You stay in charge of every lesson:
 
 | To | Do |
 |---|---|
+| Review every lesson: keep, pin or forget | `/brain:lessons` |
 | Stop a lesson for good | `/brain:forget L12`, or say "forget that lesson" |
-| Keep a lesson, loaded first | `/brain:pin L12` |
 | Reverse brain's latest change | `/brain:undo` |
+
+`/brain:lessons` lists each live lesson with its evidence: how often a session or a subagent cited
+it, and how often a reflection found its mistake again despite it. It suggests Pin for a lesson
+cited twice and never repeated, and Forget for one repeated as often as it is cited, then asks
+you about each one. `/brain:report` sums the same signals.
 
 Every lesson loads in every session it applies to. brain retires one on its own only when it is a
 project lesson whose project has had no session for 90 days; a pinned lesson never, and
@@ -153,9 +158,10 @@ Uninstalling leaves `~/.claude/brain`. Delete it to remove the records.
   read. It blocks the forms an injected rule takes (scripts, URLs, paths, commands with
   arguments) and stores no other text from the session. A draft loads only once you turn loading
   on, and the line at each session start lists new drafts.
-- brain does not measure whether a lesson helps. One lesson fixes one kind of mistake, which
-  barely moves a session's total friction, so a with-and-without comparison judged noise: you
-  decide with `/brain:forget` and `/brain:pin`.
+- brain does not prove that a lesson helps. `/brain:lessons` shows two signals per lesson: how
+  often a session or subagent cited it, and how often a reflection found its mistake again. A
+  lesson that prevents a mistake without a citation shows nothing, and a repeat is found only
+  after a correction or a denied call. A citation does not say which subagent made it.
 - Lessons are grouped into a skill by the tool their code spans name, not by subject. A skill
   that does not trigger is retired after 30 days; brain does not rewrite its description, and it
   does not draft repo skills for colleagues.

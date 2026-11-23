@@ -64,8 +64,14 @@ export function report(db, days, now = Date.now()) {
     }
   }
   const r = db.prepare("SELECT count(*) AS n, avg(code) AS avg FROM events WHERE kind = 'reflect' AND ts >= ?").get(since);
-  const drafts = db.prepare("SELECT count(*) AS n FROM lessons WHERE status = 'draft'").get().n;
-  out.push('', `Reflections: ${r.n}${r.avg === null ? '' : `, about ${human(Math.round(r.avg))} tokens each`}; draft lessons: ${drafts}`);
+  out.push('', `Reflections: ${r.n}${r.avg === null ? '' : `, about ${human(Math.round(r.avg))} tokens each`}`);
+  const l = db.prepare(`SELECT
+    (SELECT count(*) FROM lessons WHERE status != 'deprecated') AS live,
+    (SELECT count(*) FROM lessons WHERE status = 'stable') AS pinned,
+    (SELECT count(*) FROM events WHERE kind = 'cite' AND ts >= $since) AS cited,
+    (SELECT count(*) FROM events WHERE kind = 'cite' AND text = 'subagent' AND ts >= $since) AS sub,
+    (SELECT count(*) FROM events WHERE kind = 'repeat' AND ts >= $since) AS repeated`).get({ since });
+  out.push(`Lessons: ${l.live} live, ${l.pinned} pinned; cited ${l.cited} times (${l.sub} in subagents), repeated ${l.repeated} times. /brain:lessons reviews each one.`);
   const queue = db.prepare('SELECT reason, count(*) AS n FROM queue GROUP BY reason ORDER BY reason').all();
   out.push('', `Queue: ${queue.length ? queue.map((q) => `${q.n} ${q.reason}`).join(', ') : 'empty'}`);
   out.push('', 'Interrupts and tokens are whole-session totals, from the transcripts.');

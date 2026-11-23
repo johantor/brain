@@ -85,10 +85,14 @@ Paths in *Map* and *Gotchas* are relative to `plugin/`, the directory users inst
   list markers and links dropped, case and punctuation ignored) and prints the entries found in
   2+ projects that `~/.claude/CLAUDE.md` does not hold yet. Writes nothing (#2). The `brain`
   skill runs it.
-- `lib/manage.mjs` and `commands/forget.md`, `pin.md`, `undo.md`: forget sets `deprecated`
+- `lib/manage.mjs` and `commands/lessons.md`, `forget.md`, `undo.md`: forget sets `deprecated`
   (`retired: "vetoed"` in the file; the key still blocks re-learning), pin sets `stable` with
   `verified: human:local`, undo restores the `before` of the latest `changes` row not undone (a
-  proposal undoes to a veto) and marks its own row undone. `writeLearned()` writes `learned.md`,
+  proposal undoes to a veto) and marks its own row undone; forget and pin take several ids.
+  `list` prints each live lesson with its `cite` and `repeat` counts and `suggest()`'s choice;
+  `/brain:lessons` asks the user per lesson and applies it (there is no pin command). `repeat`
+  adds a `repeat` event (lesson id in `code`), which the reflect skill runs when a loaded lesson
+  covers the friction; it refuses a lesson created after the session started. `writeLearned()` writes `learned.md`,
   a read-only view of the global lessons; with `learn` on, the async `SessionStart` capture runs
   it before its scan. Hand edits are overwritten: they would race between sessions and skip the
   checks `propose.mjs` makes (#14).
@@ -120,13 +124,15 @@ Paths in *Map* and *Gotchas* are relative to `plugin/`, the directory users inst
 - `lib/scan.mjs`: `scan(db)` reads `<config>/projects/*/<sid>.jsonl` and
   `<sid>/subagents/*.jsonl` whole, only when the signature changed, only within 90 days. Tokens
   are summed once per `message.id`; interrupts are user lines that start with
-  `[Request interrupted by user`; model and version come from the main transcript. Hooks own
+  `[Request interrupted by user`; each `(L<n>)` in assistant text is one `cite` event per reply
+  and lesson (`code` the id, `text` `main` or `subagent`), replaced on each reread (`SIG`'s
+  prefix is bumped when the scan reads something new, so an upgrade rereads once); model and version come from the main transcript. Hooks own
   `cwd` and `started`. Then queues sessions with no `ended` and silent for 12 hours (`no-end`),
   and prunes.
 - `lib/report.mjs` and `commands/report.md`: `/brain:report [--days N]`, one row per project
   (by `cwd`), event counts and repeated failures within the window, calls, failures and denials
   by agent once a named agent made a call, interrupts and tokens as
-  whole-session totals, the queue.
+  whole-session totals, lessons with citations and repeats, the queue.
 - `lib/ask.mjs` and `skills/brain/SKILL.md`: the `brain` skill runs one `SELECT`/`WITH` per call
   on a `readOnly` connection and prints tab-separated rows (at most 200, cells clipped). Temp
   views `my_sessions`, `my_events`, `my_denials`, `my_queue` hold the project of `--cwd`
@@ -157,8 +163,9 @@ Paths in *Map* and *Gotchas* are relative to `plugin/`, the directory users inst
 - `lib/config.mjs` and `commands/learn.md`: `config.json`, one switch, `learn`, on by default:
   it gates reflection and loading. A pre-0.12.0 file with `reflect` or `learn` on reads as on,
   one with both off as off.
-- `skills/reflect/SKILL.md`: drafts at most two lessons from the user's words, never tool output,
-  and runs `propose.mjs`. The hook message is one line (Claude Code prints it in the chat): the
+- `skills/reflect/SKILL.md`: records a `repeat` when a loaded lesson covers the friction, else
+  drafts at most two lessons from the user's words, never tool output, and runs `propose.mjs`. A
+  denial names its agent in the hook message. The hook message is one line (Claude Code prints it in the chat): the
   session and its friction, or the tool and lesson ids; the skills hold the steps.
 - `lib/paths.mjs`: `brainDir()` (`CLAUDE_BRAIN_DIR`), `projectsDir()` (`CLAUDE_CONFIG_DIR`),
   `isMain()` (real paths, so a symlinked install runs its main).
