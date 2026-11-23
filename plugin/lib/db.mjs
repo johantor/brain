@@ -23,6 +23,8 @@ CREATE TABLE IF NOT EXISTS events (
 CREATE INDEX IF NOT EXISTS events_sid ON events (sid, kind);
 CREATE TABLE IF NOT EXISTS queue (sid TEXT PRIMARY KEY, reason TEXT NOT NULL, ts INTEGER NOT NULL);
 CREATE TABLE IF NOT EXISTS transcripts (sid TEXT PRIMARY KEY, sig TEXT NOT NULL);
+-- A subagent's id and its scrubbed type, from the hooks: the scan names its transcript with it.
+CREATE TABLE IF NOT EXISTS agents (sid TEXT NOT NULL, id TEXT NOT NULL, type TEXT NOT NULL, PRIMARY KEY (sid, id));
 -- An index of the lesson files, which are the source of truth; \`key\` catches repeats.
 CREATE TABLE IF NOT EXISTS lessons (
   id INTEGER PRIMARY KEY AUTOINCREMENT, key TEXT NOT NULL UNIQUE, description TEXT NOT NULL,
@@ -92,6 +94,7 @@ export function prune(db, now = Date.now()) {
     db.prepare('DELETE FROM events WHERE ts < ?').run(cutoff);
     db.prepare('DELETE FROM sessions WHERE coalesce(last, started, 0) < ?').run(cutoff);
     db.prepare('DELETE FROM transcripts WHERE sid NOT IN (SELECT sid FROM sessions)').run();
+    db.prepare('DELETE FROM agents WHERE sid NOT IN (SELECT sid FROM sessions)').run();
     db.prepare('DELETE FROM queue WHERE ts < ?').run(now - QUEUE_DAYS * DAY);
   });
 }

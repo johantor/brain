@@ -89,12 +89,12 @@ test('list shows each live lesson with its citations, repeats and a suggestion',
   const { db } = setup(t);
   const cite = db.prepare("INSERT INTO events (sid, ts, kind, code, text) VALUES ('s1', ?, 'cite', ?, ?)");
   cite.run(NOW, 2, 'main');
-  cite.run(NOW, 2, 'subagent');
+  cite.run(NOW, 2, 'crew:frontend');
   record(db, { session_id: 's2', cwd: '/w/shop', hook_event_name: 'SessionStart' }, NOW);
   repeat(db, 1, 's2', NOW);
   const out = list(db, NOW + 3 * DAY);
   assert.match(out, /^L1 draft, global method-error, 3 days old: cited 0 times, repeated 1 time\. Suggest: forget\n {2}Read the failing log/m);
-  assert.match(out, /^L2 draft, global method-error, 3 days old: cited 2 times \(1 in subagents\), repeated 0 times\. Suggest: pin$/m);
+  assert.match(out, /^L2 draft, global method-error, 3 days old: cited 2 times \(1 in subagents: crew:frontend 1\), repeated 0 times\. Suggest: pin$/m);
   forget(db, 1, NOW);
   assert.doesNotMatch(list(db, NOW), /^L1 /m);
 });

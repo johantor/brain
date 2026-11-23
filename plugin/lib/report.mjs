@@ -69,7 +69,7 @@ export function report(db, days, now = Date.now()) {
     (SELECT count(*) FROM lessons WHERE status != 'deprecated') AS live,
     (SELECT count(*) FROM lessons WHERE status = 'stable') AS pinned,
     (SELECT count(*) FROM events WHERE kind = 'cite' AND ts >= $since) AS cited,
-    (SELECT count(*) FROM events WHERE kind = 'cite' AND text = 'subagent' AND ts >= $since) AS sub,
+    (SELECT count(*) FROM events WHERE kind = 'cite' AND text != 'main' AND ts >= $since) AS sub,
     (SELECT count(*) FROM events WHERE kind = 'repeat' AND ts >= $since) AS repeated`).get({ since });
   out.push(`Lessons: ${l.live} live, ${l.pinned} pinned; cited ${l.cited} times (${l.sub} in subagents), repeated ${l.repeated} times. /brain:lessons reviews each one.`);
   const queue = db.prepare('SELECT reason, count(*) AS n FROM queue GROUP BY reason ORDER BY reason').all();

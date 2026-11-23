@@ -11,7 +11,7 @@ import { writeLearned } from './manage.mjs';
 import { decide } from './reflect.mjs';
 import { retireIdle } from './retire.mjs';
 import { lifecycle } from './skills.mjs';
-import { scan } from './scan.mjs';
+import { agentId, scan } from './scan.mjs';
 import { projectNames, scrub } from './scrub.mjs';
 
 const PROMPT_MAX = 2000;
@@ -101,6 +101,7 @@ export function record(db, p, now = Date.now()) {
     // New activity means a session queued as quiet is not over; the next scan requeues it.
     db.prepare("DELETE FROM queue WHERE sid = ? AND reason = 'no-end'").run(sid);
     write();
+    if (agent && agentId(p.agent_id)) db.prepare('INSERT OR IGNORE INTO agents (sid, id, type) VALUES (?, ?, ?)').run(sid, agentId(p.agent_id), agent);
   });
   return true;
 }

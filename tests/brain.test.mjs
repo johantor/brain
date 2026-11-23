@@ -217,6 +217,20 @@ test('scan counts each lesson citation once per reply, apart for subagents, and 
   db.prepare("DELETE FROM events WHERE kind = 'cite'").run();
   await scan(db, dir, NOW);
   assert.equal(rows().length, 4, 'a signature from before the bump is reread');
+  // A hook inside the subagent names it, here after its file stopped changing: the scan rereads.
+  record(db, { session_id: 's1', hook_event_name: 'PostToolUse', tool_name: 'Read', tool_input: {}, agent_type: 'crew:frontend', agent_id: 'agent-a1' }, NOW);
+  await scan(db, dir, NOW);
+  assert.deepEqual(rows().filter((r) => r.code === 3).map((r) => r.text), ['crew:frontend', 'main']);
+});
+
+test('a subagent hook keeps its id and type; a main session or a bad id keeps nothing', () => {
+  const db = freshDb();
+  const hook = (p) => record(db, { session_id: 's1', hook_event_name: 'PostToolUse', tool_name: 'Read', tool_input: {}, ...p }, NOW);
+  hook({ agent_type: 'Explore', agent_id: 'agent-x9' });
+  hook({ agent_type: 'Explore', agent_id: 'x9' });
+  hook({ agent_type: 'Explore', agent_id: '../etc' });
+  hook({ agent_id: 'y1' });
+  assert.deepEqual(db.prepare('SELECT id, type FROM agents').all().map((r) => ({ ...r })), [{ id: 'x9', type: 'Explore' }]);
 });
 
 test('scan keeps what hooks recorded and rereads only changed transcripts', async () => {

@@ -99,7 +99,8 @@ Paths in *Map* and *Gotchas* are relative to `plugin/`, the directory users inst
 - `lib/capture.mjs`: `record(db, payload)` writes one hook payload in one transaction: it upserts
   the session (`cwd` and `started` first seen, `last` the latest) and adds one `events` row.
   Each row keeps `agent`, the payload's `agent_type` scrubbed like a skill name (null in
-  the main session, before 0.13.0, or when scrubbed away), so friction splits by agent.
+  the main session, before 0.13.0, or when scrubbed away), so friction splits by agent. A
+  payload with both keeps its `agent_id` (`agentId()`: no `agent-` prefix) and type in `agents`.
   Kinds: `prompt` (scrubbed text, at most 2000 characters), `tool_ok`, `tool_fail` (`code` from
   `Exit code N`, `text` the Bash program name only, scrubbed), `permission` (not for
   `AskUserQuestion`: a question is not a permission). Any new activity
@@ -116,7 +117,7 @@ Paths in *Map* and *Gotchas* are relative to `plugin/`, the directory users inst
   `tx()`, `prune()`. Tables: `sessions` (sid, cwd, started, last, ended, end_reason, model,
   version, tokens_in, tokens_cached, tokens_out, interrupts), `events` (sid, ts, kind, tool, call,
   code, text, agent: added by `ALTER TABLE` to a database from before 0.13.0, which also replaces `denials`), `queue` (sid, reason `end`|`no-end`, ts), `transcripts` (sid, sig: mtime and size
-  of each file), `lessons` (id, key, description, kind, scope, project, status, created: an index
+  of each file), `agents` (sid, id, type: pruned with its session), `lessons` (id, key, description, kind, scope, project, status, created: an index
   of the lesson files), `changes` (id, ts, lesson, action, before as JSON, undone), `skills` (id, name, tool,
   description, body, status, created, activated, lessons). Databases from 0.8.0 to 0.10.x also
   hold a `scores` table and a `lessons.model` column, both unused. View `denials`: a
@@ -125,7 +126,9 @@ Paths in *Map* and *Gotchas* are relative to `plugin/`, the directory users inst
   `<sid>/subagents/*.jsonl` whole, only when the signature changed, only within 90 days. Tokens
   are summed once per `message.id`; interrupts are user lines that start with
   `[Request interrupted by user`; each `(L<n>)` in assistant text is one `cite` event per reply
-  and lesson (`code` the id, `text` `main` or `subagent`), replaced on each reread (`SIG`'s
+  and lesson (`code` the id, `text` `main`, the subagent's type from `agents` by the file's
+  `agent-<id>` name, or `subagent` when no hook named it; the labels are part of the signature,
+  since an async hook can name a subagent later), replaced on each reread (`SIG`'s
   prefix is bumped when the scan reads something new, so an upgrade rereads once); model and version come from the main transcript. Hooks own
   `cwd` and `started`. Then queues sessions with no `ended` and silent for 12 hours (`no-end`),
   and prunes.

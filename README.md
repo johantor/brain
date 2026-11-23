@@ -73,8 +73,8 @@ paths and project names before it stores a prompt, and it never stores tool outp
   read. It blocks the forms an injected rule takes (scripts, URLs, paths, commands with
   arguments), and the line at each session start lists new lessons.
 - brain does not prove that a lesson helps. A lesson that prevents a mistake without a citation
-  shows nothing, a repeat is found only after a correction or a denied call, and a citation does
-  not say which subagent made it.
+  shows nothing, and a repeat is found only after a correction or a denied call. A citation by a
+  subagent that made no tool call reads as `subagent`, without its name.
 - Lessons are grouped into a skill by the tool they name, not by subject. brain does not rewrite a
   skill that does not trigger; it retires it after 30 days.
 - The transcript format is not documented. A Claude Code update can break the scan; the hooks keep

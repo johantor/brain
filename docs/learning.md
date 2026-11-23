@@ -34,7 +34,7 @@ in `~/.claude/brain/changes.log`.
 `/brain:lessons` lists each live lesson with two signals:
 
 - **Cited**: how often a session or a subagent cited it, read from the transcripts, including the
-  subagents' you never see.
+  subagents' you never see. Subagent citations are split by agent, such as `crew:frontend 2`.
 - **Repeated**: how often a reflection found its mistake again despite it.
 
 It suggests Pin for a lesson cited twice and never repeated, and Forget for one repeated as often
