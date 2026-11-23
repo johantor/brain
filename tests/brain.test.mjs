@@ -217,9 +217,8 @@ test('scan counts each lesson citation once per reply, apart for subagents, and 
   db.prepare("DELETE FROM events WHERE kind = 'cite'").run();
   await scan(db, dir, NOW);
   assert.equal(rows().length, 4, 'a signature from before the bump is reread');
-  // A hook inside the subagent names it; the next reread labels its citations with the type.
+  // A hook inside the subagent names it, here after its file stopped changing: the scan rereads.
   record(db, { session_id: 's1', hook_event_name: 'PostToolUse', tool_name: 'Read', tool_input: {}, agent_type: 'crew:frontend', agent_id: 'agent-a1' }, NOW);
-  fs.appendFileSync(path.join(pdir, 's1', 'subagents', 'agent-a1.jsonl'), '\n');
   await scan(db, dir, NOW);
   assert.deepEqual(rows().filter((r) => r.code === 3).map((r) => r.text), ['crew:frontend', 'main']);
 });

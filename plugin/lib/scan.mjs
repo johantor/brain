@@ -153,9 +153,11 @@ export async function scan(db, dir = projectsDir(), now = Date.now()) {
     try {
       const stats = files.map((f) => fs.statSync(f));
       if (stats[0].mtimeMs < since) continue;
-      const sig = `${SIG}${stats.map((s) => `${s.mtimeMs}:${s.size}`).join(',')}`;
+      // The labels count too: an async hook can name a subagent after its file stopped changing.
+      const names = labels(db, sid, files);
+      const sig = `${SIG}${stats.map((s) => `${s.mtimeMs}:${s.size}`).join(',')}|${names.join(',')}`;
       if (known.get(sid)?.sig === sig) continue;
-      const s = await readSession(files, labels(db, sid, files));
+      const s = await readSession(files, names);
       tx(db, () => {
         db.prepare(UPSERT).run(sid, s.cwd, s.first, s.last, s.model, s.version, s.tokensIn, s.tokensCached, s.tokensOut, s.interrupts);
         db.prepare('INSERT INTO transcripts (sid, sig) VALUES (?, ?) ON CONFLICT(sid) DO UPDATE SET sig = excluded.sig').run(sid, sig);

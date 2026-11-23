@@ -127,7 +127,8 @@ Paths in *Map* and *Gotchas* are relative to `plugin/`, the directory users inst
   are summed once per `message.id`; interrupts are user lines that start with
   `[Request interrupted by user`; each `(L<n>)` in assistant text is one `cite` event per reply
   and lesson (`code` the id, `text` `main`, the subagent's type from `agents` by the file's
-  `agent-<id>` name, or `subagent` when no hook named it), replaced on each reread (`SIG`'s
+  `agent-<id>` name, or `subagent` when no hook named it; the labels are part of the signature,
+  since an async hook can name a subagent later), replaced on each reread (`SIG`'s
   prefix is bumped when the scan reads something new, so an upgrade rereads once); model and version come from the main transcript. Hooks own
   `cwd` and `started`. Then queues sessions with no `ended` and silent for 12 hours (`no-end`),
   and prunes.
