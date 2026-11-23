@@ -149,6 +149,19 @@ test('openDb makes an existing directory and database private', () => {
   assert.equal(fs.statSync(file).mode & 0o777, 0o600);
 });
 
+test('a prompt with no Stop or StopFailure since the last one follows an interrupt', () => {
+  const db = freshDb();
+  const hook = (hook_event_name, t, extra = {}) => record(db, { session_id: 's1', hook_event_name, ...extra }, t);
+  hook('UserPromptSubmit', NOW, { prompt: 'first' });
+  hook('Stop', NOW + 1);
+  hook('UserPromptSubmit', NOW + 2, { prompt: 'after a stop' });
+  hook('UserPromptSubmit', NOW + 3, { prompt: 'after Esc' });
+  hook('StopFailure', NOW + 4, { error: 'rate_limit' });
+  hook('UserPromptSubmit', NOW + 5, { prompt: 'after an API error' });
+  const codes = db.prepare("SELECT text, code FROM events WHERE kind = 'prompt' ORDER BY ts").all().map((r) => [r.text, r.code]);
+  assert.deepEqual(codes, [['first', null], ['after a stop', null], ['after Esc', 1], ['after an API error', null]]);
+});
+
 test('SessionEnd marks the end and queues the session, also over a no-end entry', () => {
   const db = freshDb();
   db.prepare("INSERT INTO queue (sid, reason, ts) VALUES ('s1', 'no-end', ?)").run(NOW - 1);

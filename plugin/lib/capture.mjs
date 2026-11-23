@@ -62,6 +62,13 @@ const UPSERT_SESSION = `
     started = min(coalesce(sessions.started, excluded.started), excluded.started),
     last = max(coalesce(sessions.last, 0), excluded.last)`;
 
+// Esc fires no Stop or StopFailure (hooks docs), so a prompt with neither since the previous
+// prompt follows an interrupted turn. The first prompt of a session follows none.
+export function afterInterrupt(db, sid) {
+  const last = db.prepare("SELECT max(ts) AS t FROM events WHERE sid = ? AND kind = 'prompt'").get(sid).t;
+  return last !== null && !db.prepare("SELECT 1 FROM events WHERE sid = ? AND kind = 'stop' AND ts >= ?").get(sid, last);
+}
+
 const INSERT_EVENT = 'INSERT INTO events (sid, ts, kind, tool, call, code, text, agent) VALUES (?, ?, ?, ?, ?, ?, ?, ?)';
 
 // Writes one payload. Returns false for a payload brain does not record.
@@ -77,16 +84,19 @@ export function record(db, p, now = Date.now()) {
     SessionStart: () => {
       if (typeof p.model === 'string') db.prepare('UPDATE sessions SET model = ? WHERE sid = ?').run(p.model, sid);
     },
+    // `code` 1: the turn before was interrupted, so this prompt corrects it whatever its words.
     UserPromptSubmit: () => {
       const text = scrub(p.prompt, projectNames(p.cwd));
-      if (text) event('prompt', { text: text.slice(0, PROMPT_MAX) });
+      if (text) event('prompt', { text: text.slice(0, PROMPT_MAX), code: afterInterrupt(db, sid) ? 1 : null });
     },
     // For a Skill call, the skill's name: skills.mjs retires brain skills nobody uses.
     PostToolUse: () => event('tool_ok', { ...call(), text: p.tool_name === 'Skill' ? skillName(p.tool_input, projectNames(p.cwd)) : null }),
     PostToolUseFailure: () => event('tool_fail', { ...call(), code: exitCode(p.error), text: program(p, projectNames(p.cwd)) }),
     // A question to the user is not a permission: an answered one must not read as a denial.
     PermissionRequest: () => p.tool_name !== 'AskUserQuestion' && event('permission', call()),
-    Stop: () => {},
+    // Every turn that ends reaches one of these; one that the user interrupts reaches neither.
+    Stop: () => event('stop'),
+    StopFailure: () => event('stop'),
     SessionEnd: () => {
       db.prepare('UPDATE sessions SET ended = ?, end_reason = ? WHERE sid = ?').run(now, p.reason ?? null, sid);
       // A session the scan already queued as `no-end` did end after all.

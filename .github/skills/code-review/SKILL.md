@@ -35,7 +35,7 @@ format; code rules are the `engineering-principles` skill
 - **It never blocks or fails a session.** Every path exits 0: no Node, an old Node, bad JSON, an
   unwritable directory, a locked database. A change that can exit non-zero, hang, or run longer
   than its `timeout` is Blocking.
-- **Async by default.** Only `SessionEnd`, `Stop`, `UserPromptSubmit`, `PostToolUseFailure` and
+- **Async by default.** Only `SessionEnd`, `Stop`, `StopFailure`, `UserPromptSubmit`, `PostToolUseFailure` and
   `load.sh` at `SessionStart` and `SubagentStart` run in the foreground (`capture.test.sh` asserts it). A new foreground hook needs the reason in
   `CLAUDE.md`.
 - **Loaded lessons steer every session.** Loading stays off by default, stays within `BUDGET`,
