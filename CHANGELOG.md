@@ -10,8 +10,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - `/brain:lessons` suggests Promote for a pinned lesson that one plugin's agents cite in two or
-  more projects, if the plugin opts in, and drafts an issue for its repository; it sends only on
-  your Send (#33).
+  more projects, and drafts an issue for its repository; it sends only on your Send (#33).
+- `/brain:promote` lists or changes the plugins Promote may draft for: board, crew and personas
+  from the `johantor` marketplace by default.
 
 ## [0.17.0] - 2026-11-23
 

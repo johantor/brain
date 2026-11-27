@@ -31,7 +31,7 @@ Report their output as printed. Keep needs no command. `/brain:undo` reverses th
 ## Promote
 
 A lesson can suggest Promote: it is pinned, and mostly one plugin's agents cite it, in two or more
-projects, so the fix belongs in that plugin. Only a plugin that opts in gets it. Offer Promote as a fourth option only for that
+projects, so the fix belongs in that plugin. Only a plugin that `/brain:promote` lists gets it. Offer Promote as a fourth option only for that
 lesson, and only through AskUserQuestion: without it, as in a headless run, do not offer it and
 draft nothing. When the user picks Promote, run:
 

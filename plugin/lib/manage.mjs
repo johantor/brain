@@ -65,14 +65,14 @@ const EVIDENCE = `
   WHERE l.status != 'deprecated' AND ($id IS NULL OR l.id = $id) ORDER BY l.id`;
 
 // Live lessons with their evidence, one when `id` is given; `plugin` is pluginCites().
-// The plugin's `repo` is set only when it opts in to promote.
+// The plugin's `repo` is set only when `promote` in config.json allows it.
 const withRepo = (pc) => pc && { ...pc, repo: repository(pc.plugin) };
 const evidence = (db, id = null) => db.prepare(EVIDENCE).all({ id }).map((l) => ({ ...l, plugin: l.cited ? withRepo(pluginCites(db, l.id)) : null }));
 
 // Code, not the command's prose, picks the suggestion, so every review applies one rule.
 // A lesson whose mistake recurs as often as it is cited is not working; one cited twice
 // and never repeated is. A pinned one that mostly one plugin's agents cite, in several
-// projects, belongs in that plugin, if the plugin opts in.
+// projects, belongs in that plugin, if the user allows it.
 export function suggest(l) {
   if (l.repeated && l.repeated >= l.cited) return 'forget';
   const p = l.plugin;
@@ -104,7 +104,7 @@ export function list(db, now = Date.now()) {
 export function draft(db, id) {
   const [l] = evidence(db, id);
   if (!l) return { reject: `no live lesson L${id}` };
-  if (suggest(l) !== 'promote') return { reject: `L${id} is not one to promote: it must be pinned, global, and cited mostly by the agents of one plugin that opts in, in ${MIN_PROJECTS}+ projects` };
+  if (suggest(l) !== 'promote') return { reject: `L${id} is not one to promote: it must be pinned, global, and cited mostly by the agents of one plugin /brain:promote allows, in ${MIN_PROJECTS}+ projects` };
   const drafted = issue(l, l.plugin);
   return drafted.reject ? drafted : { repo: l.plugin.repo, ...drafted };
 }

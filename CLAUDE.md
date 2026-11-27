@@ -98,14 +98,16 @@ Paths in *Map* and *Gotchas* are relative to `plugin/`, the directory users inst
   it before its scan. Hand edits are overwritten: they would race between sessions and skip the
   checks `propose.mjs` makes (#14).
 - `lib/promote.mjs`: `suggest()` says `promote` for a pinned global lesson not yet `promoted`,
-  only when `repository()` finds its plugin's repo, and whose top plugin namespace (`crew` of `crew:frontend`) holds more than half its citations, from
-  `MIN_PROJECTS` (2) projects (`pluginCites()`, by `projectRoot`). `issue()` drafts the title and
-  body; it refuses when the lesson or an agent name changes under `scrub()` with the names of
-  every project that cited it, by any agent (the fixed words are not scrubbed). `repository()` reads `owner/repo` from the
+  only when `repository()` finds its plugin's repo, and whose top plugin namespace (`crew` of
+  `crew:frontend`) holds more than half its citations, from `MIN_PROJECTS` (2) projects
+  (`pluginCites()`, by `projectRoot`). `issue()` drafts the title and body; it refuses when the
+  lesson or an agent name changes under `scrub()` with the names of every project that cited it,
+  by any agent (the fixed words are not scrubbed). `repository()` reads `owner/repo` from the
   `repository` of the plugin's manifest, found through `<config>/plugins/installed_plugins.json`,
-  GitHub only, and only when the install opts in: `.claude-plugin/brain.json` holds
-  `{"promote": true}` (a file of its own: the manifest schema has no such field). brain sends nothing: `/brain:lessons` shows the draft, and only on Send captures
-  `draft --body` and, if it succeeds, passes it to `gh issue create`, then `promoted L<n> <url>` adds a `promoted` change row.
+  GitHub only, and only for an install whose `name@marketplace` key is in config's `promote`.
+  brain sends nothing: `/brain:lessons` shows the draft, and only on Send captures
+  `draft --body` and, if it succeeds, passes it to `gh issue create`, then
+  `promoted L<n> <url>` adds a `promoted` change row.
 - `lib/capture.mjs`: `record(db, payload)` writes one hook payload in one transaction: it upserts
   the session (`cwd` and `started` first seen, `last` the latest) and adds one `events` row.
   Each row keeps `agent`, the payload's `agent_type` scrubbed like a skill name (null in
@@ -175,9 +177,11 @@ Paths in *Map* and *Gotchas* are relative to `plugin/`, the directory users inst
   later of the two. `capture.mjs` prints the request as `hookSpecificOutput.additionalContext`,
   not a block. The scan stores each
   reflection's token cost in that row's `code`.
-- `lib/config.mjs` and `commands/learn.md`: `config.json`, one switch, `learn`, on by default:
-  it gates reflection and loading. A pre-0.12.0 file with `reflect` or `learn` on reads as on,
-  one with both off as off.
+- `lib/config.mjs`, `commands/learn.md` and `promote.md`: `config.json`. `learn`, on by default,
+  gates reflection and loading; a pre-0.12.0 file with `reflect` or `learn` on reads as on, one
+  with both off as off. `promote` lists `name@marketplace` keys; with no list in the file it is
+  `DEFAULT_PROMOTE` (board, crew and personas `@johantor`), and a list the user set wins, empty
+  included.
 - `skills/reflect/SKILL.md`: records a `repeat` when a loaded lesson covers the friction, else
   drafts at most two lessons from the user's words, never tool output, and runs `propose.mjs`. A
   denial names its agent in the hook message. The hook message is one line (Claude Code prints it in the chat): the

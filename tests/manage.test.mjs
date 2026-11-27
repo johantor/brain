@@ -8,6 +8,7 @@ import { record } from '../plugin/lib/capture.mjs';
 import { DAY, openDb } from '../plugin/lib/db.mjs';
 import { lessonFile, parse } from '../plugin/lib/lessons.mjs';
 import { notice, select } from '../plugin/lib/load.mjs';
+import { main as configMain, readConfig } from '../plugin/lib/config.mjs';
 import { draft, forget, list, main, pin, repeat, suggest, undo, writeLearned } from '../plugin/lib/manage.mjs';
 import { repository } from '../plugin/lib/promote.mjs';
 import { check, store } from '../plugin/lib/propose.mjs';
@@ -119,21 +120,19 @@ test('main pins or forgets several lessons in one call, and rejects a bad id', (
   assert.deepEqual(again.prepare('SELECT status FROM lessons ORDER BY id').all().map((r) => r.status), ['stable', 'stable']);
 });
 
-// An installed plugin `name` whose manifest names `repository`, under CLAUDE_CONFIG_DIR; `optIn`
-// is its brain.json, none when undefined.
-function install(t, dir, name, repository, optIn = { promote: true }) {
+// An installed plugin `name` whose manifest names `repository`, under CLAUDE_CONFIG_DIR.
+function install(t, dir, name, repository, market = 'johantor') {
   const config = path.join(dir, 'config');
   const root = path.join(config, 'plugins', 'cache', name);
   fs.mkdirSync(path.join(root, '.claude-plugin'), { recursive: true });
   fs.writeFileSync(path.join(root, '.claude-plugin', 'plugin.json'), JSON.stringify({ name, repository }));
-  fs.rmSync(path.join(root, '.claude-plugin', 'brain.json'), { force: true });
-  if (optIn) fs.writeFileSync(path.join(root, '.claude-plugin', 'brain.json'), JSON.stringify(optIn));
-  fs.writeFileSync(path.join(config, 'plugins', 'installed_plugins.json'), JSON.stringify({ version: 2, plugins: { [`${name}@market`]: [{ scope: 'user', installPath: root }] } }));
+  fs.writeFileSync(path.join(config, 'plugins', 'installed_plugins.json'), JSON.stringify({ version: 2, plugins: { [`${name}@${market}`]: [{ scope: 'user', installPath: root }] } }));
   process.env.CLAUDE_CONFIG_DIR = config;
   t.after(() => delete process.env.CLAUDE_CONFIG_DIR);
 }
 
-// L1 pinned, cited by crew agents in /w/shop and /w/cafe, once by the main session; crew opts in.
+// L1 pinned, cited by crew agents in /w/shop and /w/cafe, once by the main session; crew@johantor
+// is installed, which the default `promote` list allows.
 function promotable(t) {
   const { db, dir } = setup(t);
   record(db, { session_id: 's3', cwd: '/w/cafe', hook_event_name: 'SessionStart' }, NOW);
@@ -157,7 +156,7 @@ test('suggest promote only for a pinned global lesson one plugin\'s agents cite 
   assert.equal(suggest({ ...l, plugin: { ...plugin, projects: 1 } }), 'keep');
   assert.equal(suggest({ ...l, cited: 6 }), 'keep', 'the plugin cites half, not most');
   assert.equal(suggest({ ...l, plugin: null }), 'keep');
-  assert.equal(suggest({ ...l, plugin: { ...plugin, repo: null } }), 'keep', 'the plugin does not opt in');
+  assert.equal(suggest({ ...l, plugin: { ...plugin, repo: null } }), 'keep', 'not allowed, or no repository');
 });
 
 test('draft holds the lesson, agents and counts, and no project name or path', (t) => {
@@ -187,18 +186,32 @@ test('draft refuses a lesson that names a project only the main session cited it
   assert.match(draft(db, 1).reject, /names a project/);
 });
 
-test('the target repository comes from the manifest of an installed plugin that opts in', (t) => {
-  const { db, dir } = promotable(t);
+test('the target repository comes from the installed plugin\'s manifest', (t) => {
+  const { dir } = promotable(t);
   assert.equal(repository('crew'), 'acme/crew');
   assert.equal(repository('other'), null);
   install(t, dir, 'crew', { url: 'https://gitlab.com/acme/crew' });
   assert.equal(repository('crew'), null, 'only a GitHub repository');
-  install(t, dir, 'crew', 'https://github.com/acme/crew', null);
-  assert.equal(repository('crew'), null, 'no brain.json');
-  assert.match(list(db, NOW), /^L1 pinned, .* Suggest: keep$/m, 'no opt-in, no suggestion');
+  install(t, dir, 'crew', 'https://github.com/acme/crew', 'other');
+  assert.equal(repository('crew'), null, 'the same name from another marketplace');
+});
+
+test('promote is suggested only for a plugin the user allowed', (t) => {
+  const { db } = promotable(t);
+  const out = [];
+  t.mock.method(console, 'log', (s) => out.push(s));
+  assert.equal(configMain(['promote']), 0);
+  assert.equal(out.pop(), 'brain: promote is allowed for board@johantor, crew@johantor, personas@johantor');
+  assert.equal(configMain(['promote', 'crew@johantor', 'off']), 0);
+  assert.equal(out.pop(), 'brain: promote is allowed for board@johantor, personas@johantor');
+  assert.match(list(db, NOW), /^L1 pinned, .* Suggest: keep$/m);
   assert.match(draft(db, 1).reject, /not one to promote/);
-  install(t, dir, 'crew', 'https://github.com/acme/crew', { promote: 'yes' });
-  assert.equal(repository('crew'), null, 'only promote: true opts in');
+  assert.equal(configMain(['promote', 'crew', 'on']), 2, 'name@marketplace only');
+  assert.equal(configMain(['promote', 'crew@x;rm', 'on']), 2);
+  configMain(['learn', 'off']);
+  configMain(['promote', 'board@johantor', 'off']);
+  configMain(['promote', 'personas@johantor', 'off']);
+  assert.deepEqual(readConfig(), { learn: false, promote: [] }, 'an empty list stays empty; each setting keeps the other');
 });
 
 test('main prints a draft, and promoted logs the issue and ends the suggestion', (t) => {
