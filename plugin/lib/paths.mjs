@@ -29,7 +29,10 @@ export function brainDir() {
   return process.env.CLAUDE_BRAIN_DIR || path.join(os.homedir(), '.claude', 'brain');
 }
 
+export function configDir() {
+  return process.env.CLAUDE_CONFIG_DIR || path.join(os.homedir(), '.claude');
+}
+
 export function projectsDir() {
-  const config = process.env.CLAUDE_CONFIG_DIR || path.join(os.homedir(), '.claude');
-  return path.join(config, 'projects');
+  return path.join(configDir(), 'projects');
 }
