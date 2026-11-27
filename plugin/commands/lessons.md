@@ -43,10 +43,10 @@ It prints the target `repository:`, the `title:` and the issue body. If it print
 report it and stop. Ask once more with AskUserQuestion. The question holds the whole draft,
 unchanged. The options are Send (only when `repository:` names `owner/repo`), Copy and Skip. Do
 not send anything unless the user picks Send. For Send, run this one command, with the
-repository and title as printed:
+repository and title as printed. It sends nothing when the draft is refused now:
 
 ```bash
-node --disable-warning=ExperimentalWarning "${CLAUDE_PLUGIN_ROOT}/lib/manage.mjs" draft L<n> --body | gh issue create --repo <owner/repo> --title "<title>" --body-file -
+body=$(node --disable-warning=ExperimentalWarning "${CLAUDE_PLUGIN_ROOT}/lib/manage.mjs" draft L<n> --body) && printf '%s\n' "$body" | gh issue create --repo <owner/repo> --title "<title>" --body-file -
 ```
 
 Then record the issue URL that `gh` printed:

@@ -14,10 +14,12 @@ export const MIN_PROJECTS = 2;
 const NAMESPACE = /^([a-z0-9][\w.-]*):/i;
 
 // The plugin whose agents cite lesson `id` most: its name, its citations by agent, and the
-// projects (by `projectRoot`) they came from. Null when no plugin agent cited it.
+// projects (by `projectRoot`) they came from; `cwds` holds every citing session's folder, for
+// the scrub. Null when no plugin agent cited it.
 export function pluginCites(db, id) {
   const rows = db.prepare("SELECT e.text, s.cwd FROM events e JOIN sessions s ON s.sid = e.sid WHERE e.kind = 'cite' AND e.code = ?").all(id);
   const byPlugin = new Map();
+  const cwds = new Set(rows.map((r) => r.cwd).filter(Boolean));
   for (const r of rows) {
     const plugin = NAMESPACE.exec(r.text ?? '')?.[1];
     if (!plugin) continue;
@@ -31,7 +33,7 @@ export function pluginCites(db, id) {
   if (!top) return null;
   const projects = new Set([...top.cwds].map(projectRoot)).size;
   const agents = [...top.agents].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
-  return { plugin: top.plugin, cited: top.cited, projects, agents, cwds: [...top.cwds] };
+  return { plugin: top.plugin, cited: top.cited, projects, agents, cwds: [...cwds] };
 }
 
 // `owner/repo` from the `repository` of an installed plugin's own manifest, never from the

@@ -100,11 +100,11 @@ Paths in *Map* and *Gotchas* are relative to `plugin/`, the directory users inst
 - `lib/promote.mjs`: `suggest()` says `promote` for a pinned global lesson not yet `promoted`
   whose top plugin namespace (`crew` of `crew:frontend`) holds more than half its citations, from
   `MIN_PROJECTS` (2) projects (`pluginCites()`, by `projectRoot`). `issue()` drafts the title and
-  body; it refuses when the lesson or an agent name changes under `scrub()` with the citing
-  projects' names (the fixed words are not scrubbed). `repository()` reads `owner/repo` from the
+  body; it refuses when the lesson or an agent name changes under `scrub()` with the names of
+  every project that cited it, by any agent (the fixed words are not scrubbed). `repository()` reads `owner/repo` from the
   `repository` of the plugin's manifest, found through `<config>/plugins/installed_plugins.json`,
-  GitHub only. brain sends nothing: `/brain:lessons` shows the draft and pipes `draft --body` to
-  `gh issue create` only on Send, then `promoted L<n> <url>` adds a `promoted` change row.
+  GitHub only. brain sends nothing: `/brain:lessons` shows the draft, and only on Send captures
+  `draft --body` and, if it succeeds, passes it to `gh issue create`, then `promoted L<n> <url>` adds a `promoted` change row.
 - `lib/capture.mjs`: `record(db, payload)` writes one hook payload in one transaction: it upserts
   the session (`cwd` and `started` first seen, `last` the latest) and adds one `events` row.
   Each row keeps `agent`, the payload's `agent_type` scrubbed like a skill name (null in

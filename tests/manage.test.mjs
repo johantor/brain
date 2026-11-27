@@ -174,6 +174,14 @@ test('draft refuses a lesson that names a citing project', (t) => {
   assert.match(draft(db, 1).reject, /names a project/);
 });
 
+test('draft refuses a lesson that names a project only the main session cited it in', (t) => {
+  const { db } = promotable(t);
+  record(db, { session_id: 's4', cwd: '/w/acorn', hook_event_name: 'SessionStart' }, NOW);
+  db.prepare("INSERT INTO events (sid, ts, kind, code, text) VALUES ('s4', ?, 'cite', 1, 'main')").run(NOW);
+  db.prepare("UPDATE lessons SET description = 'Run the acorn checks before you push.' WHERE id = 1").run();
+  assert.match(draft(db, 1).reject, /names a project/);
+});
+
 test('the target repository comes from the installed plugin\'s manifest', (t) => {
   const { db, dir } = promotable(t);
   install(t, dir, 'crew', 'https://github.com/acme/crew.git');
