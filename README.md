@@ -77,8 +77,8 @@ paths and project names before it stores a prompt, and it never stores tool outp
 - brain does not prove that a lesson helps. A lesson that prevents a mistake without a citation
   shows nothing, and a repeat is found only after a correction or a denied call. A citation by a
   subagent that made no tool call reads as `subagent`, without its name.
-- Promote finds a plugin's repository only for an installed plugin: one loaded with `--plugin-dir`
-  gets a draft with no repository, to copy by hand.
+- Promote reads a plugin's opt-in and repository only from an installed plugin: one loaded with
+  `--plugin-dir` never gets Promote.
 - Lessons are grouped into a skill by the tool they name, not by subject. brain does not rewrite a
   skill that does not trigger; it retires it after 30 days.
 - The transcript format is not documented. A Claude Code update can break the scan; the hooks keep

@@ -1,7 +1,7 @@
 // Promote (#33): a pinned lesson that one plugin's agents keep citing across projects points
 // at that plugin's prompt or skill, not at the project. brain drafts an issue for the
-// plugin's repository; it sends nothing. The /brain:lessons command shows the draft in full
-// and runs `gh` only when the user chooses to send it.
+// plugin's repository, only for a plugin that opts in; it sends nothing. The /brain:lessons
+// command shows the draft in full and runs `gh` only when the user chooses to send it.
 import fs from 'node:fs';
 import path from 'node:path';
 import { projectRoot } from './ask.mjs';
@@ -37,7 +37,8 @@ export function pluginCites(db, id) {
 }
 
 // `owner/repo` from the `repository` of an installed plugin's own manifest, never from the
-// lesson. Null when the plugin is not installed or names no GitHub repository.
+// lesson. Null unless the install opts in with `.claude-plugin/brain.json` holding
+// `{"promote": true}`, a file of its own because the manifest schema has no such field.
 export function repository(plugin) {
   const file = path.join(configDir(), 'plugins', 'installed_plugins.json');
   let installed;
@@ -49,11 +50,13 @@ export function repository(plugin) {
   for (const [key, entries] of Object.entries(installed)) {
     if (key.split('@')[0] !== plugin) continue;
     for (const e of [].concat(entries)) {
+      const dir = path.join(e.installPath ?? '', '.claude-plugin');
       let manifest;
       try {
-        manifest = JSON.parse(fs.readFileSync(path.join(e.installPath, '.claude-plugin', 'plugin.json'), 'utf8'));
+        if (JSON.parse(fs.readFileSync(path.join(dir, 'brain.json'), 'utf8')).promote !== true) continue;
+        manifest = JSON.parse(fs.readFileSync(path.join(dir, 'plugin.json'), 'utf8'));
       } catch {
-        continue; // An install without a readable manifest names no repository.
+        continue; // No opt-in or no readable manifest: no repository.
       }
       const url = typeof manifest.repository === 'string' ? manifest.repository : manifest.repository?.url;
       const m = /^(?:git\+)?https:\/\/github\.com\/([\w.-]+)\/([\w.-]+?)(?:\.git)?\/?$/.exec(url ?? '');

@@ -65,16 +65,18 @@ const EVIDENCE = `
   WHERE l.status != 'deprecated' AND ($id IS NULL OR l.id = $id) ORDER BY l.id`;
 
 // Live lessons with their evidence, one when `id` is given; `plugin` is pluginCites().
-const evidence = (db, id = null) => db.prepare(EVIDENCE).all({ id }).map((l) => ({ ...l, plugin: l.cited ? pluginCites(db, l.id) : null }));
+// The plugin's `repo` is set only when it opts in to promote.
+const withRepo = (pc) => pc && { ...pc, repo: repository(pc.plugin) };
+const evidence = (db, id = null) => db.prepare(EVIDENCE).all({ id }).map((l) => ({ ...l, plugin: l.cited ? withRepo(pluginCites(db, l.id)) : null }));
 
 // Code, not the command's prose, picks the suggestion, so every review applies one rule.
 // A lesson whose mistake recurs as often as it is cited is not working; one cited twice
 // and never repeated is. A pinned one that mostly one plugin's agents cite, in several
-// projects, belongs in that plugin.
+// projects, belongs in that plugin, if the plugin opts in.
 export function suggest(l) {
   if (l.repeated && l.repeated >= l.cited) return 'forget';
   const p = l.plugin;
-  if (l.status === 'stable' && l.scope === 'global' && !l.promoted && p && p.projects >= MIN_PROJECTS && p.cited * 2 > l.cited) return 'promote';
+  if (l.status === 'stable' && l.scope === 'global' && !l.promoted && p?.repo && p.projects >= MIN_PROJECTS && p.cited * 2 > l.cited) return 'promote';
   if (l.status !== 'stable' && l.cited >= 2 && !l.repeated) return 'pin';
   return 'keep';
 }
@@ -97,14 +99,14 @@ export function list(db, now = Date.now()) {
   }).join('\n');
 }
 
-// The issue to promote lesson `id`, with its target repository (null when the plugin's
-// manifest names none). Only a lesson suggest() would promote gets one.
+// The issue to promote lesson `id`, for its plugin's repository. Only a lesson suggest()
+// would promote gets one.
 export function draft(db, id) {
   const [l] = evidence(db, id);
   if (!l) return { reject: `no live lesson L${id}` };
-  if (suggest(l) !== 'promote') return { reject: `L${id} is not one to promote: it must be pinned, global, and cited mostly by one plugin's agents in ${MIN_PROJECTS}+ projects` };
+  if (suggest(l) !== 'promote') return { reject: `L${id} is not one to promote: it must be pinned, global, and cited mostly by the agents of one plugin that opts in, in ${MIN_PROJECTS}+ projects` };
   const drafted = issue(l, l.plugin);
-  return drafted.reject ? drafted : { repo: repository(l.plugin.plugin), plugin: l.plugin.plugin, ...drafted };
+  return drafted.reject ? drafted : { repo: l.plugin.repo, ...drafted };
 }
 
 // The user sent the draft: the issue is logged, and the lesson is not suggested again.
@@ -118,8 +120,7 @@ export function promoted(db, id, url, now = Date.now()) {
 
 function printDraft(d, bodyOnly) {
   if (bodyOnly) return console.log(d.body);
-  const repo = d.repo ?? `none: the ${d.plugin} plugin's manifest names no GitHub repository; copy the draft`;
-  console.log(`repository: ${repo}\ntitle: ${d.title}\n\n${d.body}`);
+  console.log(`repository: ${d.repo}\ntitle: ${d.title}\n\n${d.body}`);
 }
 
 export function undo(db, now = Date.now()) {

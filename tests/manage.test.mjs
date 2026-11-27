@@ -119,7 +119,21 @@ test('main pins or forgets several lessons in one call, and rejects a bad id', (
   assert.deepEqual(again.prepare('SELECT status FROM lessons ORDER BY id').all().map((r) => r.status), ['stable', 'stable']);
 });
 
-// L1 pinned, cited by crew agents in /w/shop and /w/cafe, once by the main session.
+// An installed plugin `name` whose manifest names `repository`, under CLAUDE_CONFIG_DIR; `optIn`
+// is its brain.json, none when undefined.
+function install(t, dir, name, repository, optIn = { promote: true }) {
+  const config = path.join(dir, 'config');
+  const root = path.join(config, 'plugins', 'cache', name);
+  fs.mkdirSync(path.join(root, '.claude-plugin'), { recursive: true });
+  fs.writeFileSync(path.join(root, '.claude-plugin', 'plugin.json'), JSON.stringify({ name, repository }));
+  fs.rmSync(path.join(root, '.claude-plugin', 'brain.json'), { force: true });
+  if (optIn) fs.writeFileSync(path.join(root, '.claude-plugin', 'brain.json'), JSON.stringify(optIn));
+  fs.writeFileSync(path.join(config, 'plugins', 'installed_plugins.json'), JSON.stringify({ version: 2, plugins: { [`${name}@market`]: [{ scope: 'user', installPath: root }] } }));
+  process.env.CLAUDE_CONFIG_DIR = config;
+  t.after(() => delete process.env.CLAUDE_CONFIG_DIR);
+}
+
+// L1 pinned, cited by crew agents in /w/shop and /w/cafe, once by the main session; crew opts in.
 function promotable(t) {
   const { db, dir } = setup(t);
   record(db, { session_id: 's3', cwd: '/w/cafe', hook_event_name: 'SessionStart' }, NOW);
@@ -129,22 +143,12 @@ function promotable(t) {
   cite.run('s3', NOW, 'crew:backend');
   cite.run('s3', NOW, 'main');
   pin(db, 1, NOW);
+  install(t, dir, 'crew', 'https://github.com/acme/crew.git');
   return { db, dir };
 }
 
-// An installed plugin `name` whose manifest names `repository`, under CLAUDE_CONFIG_DIR.
-function install(t, dir, name, repository) {
-  const config = path.join(dir, 'config');
-  const root = path.join(config, 'plugins', 'cache', name);
-  fs.mkdirSync(path.join(root, '.claude-plugin'), { recursive: true });
-  fs.writeFileSync(path.join(root, '.claude-plugin', 'plugin.json'), JSON.stringify({ name, repository }));
-  fs.writeFileSync(path.join(config, 'plugins', 'installed_plugins.json'), JSON.stringify({ version: 2, plugins: { [`${name}@market`]: [{ scope: 'user', installPath: root }] } }));
-  process.env.CLAUDE_CONFIG_DIR = config;
-  t.after(() => delete process.env.CLAUDE_CONFIG_DIR);
-}
-
 test('suggest promote only for a pinned global lesson one plugin\'s agents cite in 2+ projects', () => {
-  const plugin = { plugin: 'crew', cited: 3, projects: 2 };
+  const plugin = { plugin: 'crew', cited: 3, projects: 2, repo: 'acme/crew' };
   const l = { status: 'stable', scope: 'global', cited: 4, repeated: 0, plugin };
   assert.equal(suggest(l), 'promote');
   assert.equal(suggest({ ...l, status: 'draft' }), 'pin', 'not pinned');
@@ -153,13 +157,14 @@ test('suggest promote only for a pinned global lesson one plugin\'s agents cite 
   assert.equal(suggest({ ...l, plugin: { ...plugin, projects: 1 } }), 'keep');
   assert.equal(suggest({ ...l, cited: 6 }), 'keep', 'the plugin cites half, not most');
   assert.equal(suggest({ ...l, plugin: null }), 'keep');
+  assert.equal(suggest({ ...l, plugin: { ...plugin, repo: null } }), 'keep', 'the plugin does not opt in');
 });
 
 test('draft holds the lesson, agents and counts, and no project name or path', (t) => {
   const { db } = promotable(t);
   assert.match(list(db, NOW), /^L1 pinned, global method-error, 0 days old: cited 4 times \(3 in subagents: crew:frontend 2, crew:backend 1\), in 2 projects by crew agents, repeated 0 times\. Suggest: promote$/m);
   const d = draft(db, 1);
-  assert.equal(d.repo, null, 'crew is not installed');
+  assert.equal(d.repo, 'acme/crew');
   assert.equal(d.title, 'crew: agents keep needing a lesson brain learned');
   assert.match(d.body, /^> Read the failing log before you guess a cause of the failure\.$/m);
   assert.match(d.body, /Cited by: crew:frontend 2, crew:backend 1\n- Cited in 2 projects; its mistake happened again 0 times\./);
@@ -182,14 +187,18 @@ test('draft refuses a lesson that names a project only the main session cited it
   assert.match(draft(db, 1).reject, /names a project/);
 });
 
-test('the target repository comes from the installed plugin\'s manifest', (t) => {
+test('the target repository comes from the manifest of an installed plugin that opts in', (t) => {
   const { db, dir } = promotable(t);
-  install(t, dir, 'crew', 'https://github.com/acme/crew.git');
   assert.equal(repository('crew'), 'acme/crew');
-  assert.equal(draft(db, 1).repo, 'acme/crew');
   assert.equal(repository('other'), null);
   install(t, dir, 'crew', { url: 'https://gitlab.com/acme/crew' });
   assert.equal(repository('crew'), null, 'only a GitHub repository');
+  install(t, dir, 'crew', 'https://github.com/acme/crew', null);
+  assert.equal(repository('crew'), null, 'no brain.json');
+  assert.match(list(db, NOW), /^L1 pinned, .* Suggest: keep$/m, 'no opt-in, no suggestion');
+  assert.match(draft(db, 1).reject, /not one to promote/);
+  install(t, dir, 'crew', 'https://github.com/acme/crew', { promote: 'yes' });
+  assert.equal(repository('crew'), null, 'only promote: true opts in');
 });
 
 test('main prints a draft, and promoted logs the issue and ends the suggestion', (t) => {
@@ -200,7 +209,7 @@ test('main prints a draft, and promoted logs the issue and ends the suggestion',
   assert.equal(main(['draft', 'L1', '--body']), 0);
   assert.match(out.pop(), /^brain, a Claude Code plugin/);
   assert.equal(main(['draft', 'L1']), 0);
-  assert.match(out.pop(), /^repository: none: the crew plugin's manifest names no GitHub repository; copy the draft\ntitle: crew: /);
+  assert.match(out.pop(), /^repository: acme\/crew\ntitle: crew: /);
   assert.equal(main(['draft', 'L2']), 1);
   assert.equal(main(['promoted', 'L1', 'https://example.com/x']), 0);
   assert.match(out.pop(), /not a GitHub issue URL/);

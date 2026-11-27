@@ -44,7 +44,8 @@ it for good: brain never learns it again. `/brain:undo` reverses the latest chan
 It suggests Promote for a pinned global lesson that one plugin's agents, such as `crew:*`, cite
 more than all others together, in two or more projects: the cause is in the plugin, not in your
 project. Promote drafts an issue with the lesson, the citing agents and the counts, and no project
-name, path or session text; a draft whose lesson names a citing project is refused. The target
+name, path or session text; a draft whose lesson names a citing project is refused. Only a plugin
+that opts in gets Promote: its `.claude-plugin/brain.json` holds `{"promote": true}`. The target
 repository is the `repository` in the installed plugin's own manifest. brain sends nothing: you
 see the whole draft, then pick Send (one `gh issue create`), Copy or Skip. A sent lesson is not
 suggested again; forget it once the plugin ships the fix.
