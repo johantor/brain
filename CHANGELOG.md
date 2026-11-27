@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- The plugin description mentions Promote.
+- The plugin description mentions Promote (#35).
 
 ## [0.18.0] - 2026-11-27
 
