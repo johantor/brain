@@ -35,7 +35,7 @@ continue. Details: [docs/learning.md](docs/learning.md) and [docs/records.md](do
 | Command | What it does |
 |---|---|
 | `/brain:report [--days N]` | Sessions, failures, denials and tokens per project and per agent, and lesson evidence. |
-| `/brain:lessons` | Review each lesson with its evidence: keep, pin or forget. |
+| `/brain:lessons` | Review each lesson with its evidence: keep, pin, forget, or promote one to its plugin. |
 | `/brain:forget L12` | Stop a lesson for good. `S<n>` removes a brain skill. |
 | `/brain:undo` | Reverse brain's latest change to a lesson. |
 | `/brain:learn on\|off` | Turn learning on or off. |
@@ -77,6 +77,8 @@ paths and project names before it stores a prompt, and it never stores tool outp
 - brain does not prove that a lesson helps. A lesson that prevents a mistake without a citation
   shows nothing, and a repeat is found only after a correction or a denied call. A citation by a
   subagent that made no tool call reads as `subagent`, without its name.
+- Promote finds a plugin's repository only for an installed plugin: one loaded with `--plugin-dir`
+  gets a draft with no repository, to copy by hand.
 - Lessons are grouped into a skill by the tool they name, not by subject. brain does not rewrite a
   skill that does not trigger; it retires it after 30 days.
 - The transcript format is not documented. A Claude Code update can break the scan; the hooks keep

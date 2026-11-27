@@ -1,12 +1,14 @@
-// `node manage.mjs list | forget L12 [L13 ...] | pin L12 [L13 ...] | repeat L12 <sid> | undo`:
-// the user's control over lessons (#5). Forget is a veto: the lesson stays in the table as
-// `deprecated`, so its key blocks re-learning it. Pin marks it `stable`, confirmed by a
-// person (OKF `verified`). Undo reverses the latest change that is not undone yet. List
-// shows the evidence for that choice; the reflect skill records a repeat.
+// `node manage.mjs list | forget L12 [L13 ...] | pin L12 [L13 ...] | repeat L12 <sid> | undo
+// | draft L12 [--body] | promoted L12 <issue url>`: the user's control over lessons (#5). Forget
+// is a veto: the lesson stays in the table as `deprecated`, so its key blocks re-learning it.
+// Pin marks it `stable`, confirmed by a person (OKF `verified`). Undo reverses the latest
+// change that is not undone yet. List shows the evidence for that choice; the reflect skill
+// records a repeat. Draft and promoted carry a lesson to its plugin's repository (#33).
 import path from 'node:path';
 import { DAY, openDb, tx } from './db.mjs';
 import { recordChange, updateLessonFile } from './lessons.mjs';
 import { brainDir, isMain, writeAtomic } from './paths.mjs';
+import { MIN_PROJECTS, issue, pluginCites, repository } from './promote.mjs';
 
 const lessonRow = (db, id) => db.prepare('SELECT id, status FROM lessons WHERE id = ?').get(id);
 const human = (now) => [{ by: 'human:local', at: new Date(now).toISOString() }];
@@ -55,17 +57,24 @@ export function repeat(db, id, sid, now = Date.now()) {
 // Per live lesson: citations from the transcripts (scan.mjs) and repeats, within retention.
 const EVIDENCE = `
   SELECT l.id, l.status, l.scope, l.project, l.kind, l.created, l.description,
-    coalesce(c.cited, 0) AS cited, coalesce(c.sub, 0) AS sub, coalesce(r.repeated, 0) AS repeated
+    coalesce(c.cited, 0) AS cited, coalesce(c.sub, 0) AS sub, coalesce(r.repeated, 0) AS repeated,
+    EXISTS (SELECT 1 FROM changes WHERE lesson = l.id AND action = 'promoted' AND undone = 0) AS promoted
   FROM lessons l
   LEFT JOIN (SELECT code, count(*) AS cited, sum(text != 'main') AS sub FROM events WHERE kind = 'cite' GROUP BY code) c ON c.code = l.id
   LEFT JOIN (SELECT code, count(*) AS repeated FROM events WHERE kind = 'repeat' GROUP BY code) r ON r.code = l.id
-  WHERE l.status != 'deprecated' ORDER BY l.id`;
+  WHERE l.status != 'deprecated' AND ($id IS NULL OR l.id = $id) ORDER BY l.id`;
+
+// Live lessons with their evidence, one when `id` is given; `plugin` is pluginCites().
+const evidence = (db, id = null) => db.prepare(EVIDENCE).all({ id }).map((l) => ({ ...l, plugin: l.cited ? pluginCites(db, l.id) : null }));
 
 // Code, not the command's prose, picks the suggestion, so every review applies one rule.
 // A lesson whose mistake recurs as often as it is cited is not working; one cited twice
-// and never repeated is.
+// and never repeated is. A pinned one that mostly one plugin's agents cite, in several
+// projects, belongs in that plugin.
 export function suggest(l) {
   if (l.repeated && l.repeated >= l.cited) return 'forget';
+  const p = l.plugin;
+  if (l.status === 'stable' && l.scope === 'global' && !l.promoted && p && p.projects >= MIN_PROJECTS && p.cited * 2 > l.cited) return 'promote';
   if (l.status !== 'stable' && l.cited >= 2 && !l.repeated) return 'pin';
   return 'keep';
 }
@@ -76,14 +85,41 @@ const times = (n) => `${n} time${n === 1 ? '' : 's'}`;
 const BY_AGENT = "SELECT text, count(*) AS n FROM events WHERE kind = 'cite' AND code = ? AND text != 'main' GROUP BY text ORDER BY n DESC, text";
 
 export function list(db, now = Date.now()) {
-  const rows = db.prepare(EVIDENCE).all();
+  const rows = evidence(db);
   if (!rows.length) return 'brain: no live lessons';
   return rows.map((l) => {
     const where = l.scope === 'global' ? 'global' : `project ${path.basename(l.project ?? '')}`;
     const age = Math.floor((now - l.created) / DAY);
     const sub = l.sub ? ` (${l.sub} in subagents: ${db.prepare(BY_AGENT).all(l.id).map((a) => `${a.text} ${a.n}`).join(', ')})` : '';
-    return `L${l.id} ${l.status === 'stable' ? 'pinned' : l.status}, ${where} ${l.kind}, ${age} days old: cited ${times(l.cited)}${sub}, repeated ${times(l.repeated)}. Suggest: ${suggest(l)}\n  ${l.description}`;
+    const projects = l.plugin?.projects >= MIN_PROJECTS ? `, in ${l.plugin.projects} projects by ${l.plugin.plugin} agents` : '';
+    const promoted = l.promoted ? ', promoted' : '';
+    return `L${l.id} ${l.status === 'stable' ? 'pinned' : l.status}${promoted}, ${where} ${l.kind}, ${age} days old: cited ${times(l.cited)}${sub}${projects}, repeated ${times(l.repeated)}. Suggest: ${suggest(l)}\n  ${l.description}`;
   }).join('\n');
+}
+
+// The issue to promote lesson `id`, with its target repository (null when the plugin's
+// manifest names none). Only a lesson suggest() would promote gets one.
+export function draft(db, id) {
+  const [l] = evidence(db, id);
+  if (!l) return { reject: `no live lesson L${id}` };
+  if (suggest(l) !== 'promote') return { reject: `L${id} is not one to promote: it must be pinned, global, and cited mostly by one plugin's agents in ${MIN_PROJECTS}+ projects` };
+  const drafted = issue(l, l.plugin);
+  return drafted.reject ? drafted : { repo: repository(l.plugin.plugin), plugin: l.plugin.plugin, ...drafted };
+}
+
+// The user sent the draft: the issue is logged, and the lesson is not suggested again.
+export function promoted(db, id, url, now = Date.now()) {
+  const l = lessonRow(db, id);
+  if (!l) return `no lesson L${id}`;
+  if (!/^https:\/\/github\.com\/[\w.-]+\/[\w.-]+\/issues\/\d+$/.test(url)) return `not a GitHub issue URL: ${url}`;
+  recordChange(db, { lesson: id, action: 'promoted', before: { status: l.status }, now, note: url });
+  return `L${id} promoted to ${url}: forget it once the plugin ships the fix`;
+}
+
+function printDraft(d, bodyOnly) {
+  if (bodyOnly) return console.log(d.body);
+  const repo = d.repo ?? `none: the ${d.plugin} plugin's manifest names no GitHub repository; copy the draft`;
+  console.log(`repository: ${repo}\ntitle: ${d.title}\n\n${d.body}`);
 }
 
 export function undo(db, now = Date.now()) {
@@ -115,10 +151,13 @@ const lessonId = (ref) => Number(/^L?(\d+)$/i.exec(ref ?? '')?.[1]);
 
 export function main(argv = process.argv.slice(2)) {
   const [action, ...refs] = argv;
-  const ids = action === 'repeat' ? [lessonId(refs[0])] : refs.map(lessonId);
-  const ok = { list: !refs.length, undo: !refs.length, forget: refs.length, pin: refs.length, repeat: refs.length === 2 }[action];
+  const ids = ['repeat', 'draft', 'promoted'].includes(action) ? [lessonId(refs[0])] : refs.map(lessonId);
+  const ok = {
+    list: !refs.length, undo: !refs.length, forget: refs.length, pin: refs.length, repeat: refs.length === 2,
+    draft: refs.length === 1 || (refs.length === 2 && refs[1] === '--body'), promoted: refs.length === 2,
+  }[action];
   if (!ok || !ids.every(Boolean)) {
-    console.error('usage: manage.mjs list | forget L<n> [L<n> ...] | pin L<n> [L<n> ...] | repeat L<n> <session id> | undo');
+    console.error('usage: manage.mjs list | forget L<n> [L<n> ...] | pin L<n> [L<n> ...] | repeat L<n> <session id> | undo | draft L<n> [--body] | promoted L<n> <issue url>');
     return 2;
   }
   const db = openDb();
@@ -127,9 +166,21 @@ export function main(argv = process.argv.slice(2)) {
       console.log(list(db));
       return 0;
     }
-    const run = { undo: () => [undo(db)], repeat: () => [repeat(db, ids[0], refs[1])], forget: () => ids.map((id) => forget(db, id)), pin: () => ids.map((id) => pin(db, id)) }[action];
+    if (action === 'draft') {
+      const d = draft(db, ids[0]);
+      if (d.reject) {
+        console.log(`brain: no draft: ${d.reject}`);
+        return 1;
+      }
+      printDraft(d, refs[1] === '--body');
+      return 0;
+    }
+    const run = {
+      undo: () => [undo(db)], repeat: () => [repeat(db, ids[0], refs[1])], promoted: () => [promoted(db, ids[0], refs[1])],
+      forget: () => ids.map((id) => forget(db, id)), pin: () => ids.map((id) => pin(db, id)),
+    }[action];
     const out = tx(db, run);
-    if (action !== 'repeat') writeLearned(db);
+    if (!['repeat', 'promoted'].includes(action)) writeLearned(db);
     for (const line of out) console.log(`brain: ${line}`);
     return 0;
   } finally {

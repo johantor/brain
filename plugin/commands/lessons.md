@@ -1,5 +1,5 @@
 ---
-description: "Review brain's lessons with their evidence, and keep, pin or forget each one."
+description: "Review brain's lessons with their evidence, and keep, pin, forget or promote each one."
 ---
 
 Run this one command with the Bash tool:
@@ -27,3 +27,33 @@ node --disable-warning=ExperimentalWarning "${CLAUDE_PLUGIN_ROOT}/lib/manage.mjs
 ```
 
 Report their output as printed. Keep needs no command. `/brain:undo` reverses the latest change.
+
+## Promote
+
+A lesson can suggest Promote: it is pinned, and mostly one plugin's agents cite it, in two or more
+projects, so the fix belongs in that plugin. Offer Promote as a fourth option only for that
+lesson, and only through AskUserQuestion: without it, as in a headless run, do not offer it and
+draft nothing. When the user picks Promote, run:
+
+```bash
+node --disable-warning=ExperimentalWarning "${CLAUDE_PLUGIN_ROOT}/lib/manage.mjs" draft L<n>
+```
+
+It prints the target `repository:`, the `title:` and the issue body. If it prints "no draft",
+report it and stop. Ask once more with AskUserQuestion. The question holds the whole draft,
+unchanged. The options are Send (only when `repository:` names `owner/repo`), Copy and Skip. Do
+not send anything unless the user picks Send. For Send, run this one command, with the
+repository and title as printed:
+
+```bash
+node --disable-warning=ExperimentalWarning "${CLAUDE_PLUGIN_ROOT}/lib/manage.mjs" draft L<n> --body | gh issue create --repo <owner/repo> --title "<title>" --body-file -
+```
+
+Then record the issue URL that `gh` printed:
+
+```bash
+node --disable-warning=ExperimentalWarning "${CLAUDE_PLUGIN_ROOT}/lib/manage.mjs" promoted L<n> <issue url>
+```
+
+For Copy, show the draft in a code block for the user to file by hand. After the plugin ships the
+fix, the user forgets the lesson with `/brain:forget L<n>`.

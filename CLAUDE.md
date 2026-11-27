@@ -90,12 +90,21 @@ Paths in *Map* and *Gotchas* are relative to `plugin/`, the directory users inst
   `verified: human:local`, undo restores the `before` of the latest `changes` row not undone (a
   proposal undoes to a veto) and marks its own row undone; forget and pin take several ids.
   `list` prints each live lesson with its `cite` and `repeat` counts and `suggest()`'s choice;
-  `/brain:lessons` asks the user per lesson and applies it (there is no pin command). `repeat`
+  `/brain:lessons` asks the user per lesson and applies it (there is no pin command). `draft`
+  and `promoted` carry a lesson to its plugin (`lib/promote.mjs`, below). `repeat`
   adds a `repeat` event (lesson id in `code`), which the reflect skill runs when a loaded lesson
   covers the friction; it refuses a lesson created after the session started. `writeLearned()` writes `learned.md`,
   a read-only view of the global lessons; with `learn` on, the async `SessionStart` capture runs
   it before its scan. Hand edits are overwritten: they would race between sessions and skip the
   checks `propose.mjs` makes (#14).
+- `lib/promote.mjs`: `suggest()` says `promote` for a pinned global lesson not yet `promoted`
+  whose top plugin namespace (`crew` of `crew:frontend`) holds more than half its citations, from
+  `MIN_PROJECTS` (2) projects (`pluginCites()`, by `projectRoot`). `issue()` drafts the title and
+  body; it refuses when the lesson or an agent name changes under `scrub()` with the citing
+  projects' names (the fixed words are not scrubbed). `repository()` reads `owner/repo` from the
+  `repository` of the plugin's manifest, found through `<config>/plugins/installed_plugins.json`,
+  GitHub only. brain sends nothing: `/brain:lessons` shows the draft and pipes `draft --body` to
+  `gh issue create` only on Send, then `promoted L<n> <url>` adds a `promoted` change row.
 - `lib/capture.mjs`: `record(db, payload)` writes one hook payload in one transaction: it upserts
   the session (`cwd` and `started` first seen, `last` the latest) and adds one `events` row.
   Each row keeps `agent`, the payload's `agent_type` scrubbed like a skill name (null in
@@ -172,7 +181,7 @@ Paths in *Map* and *Gotchas* are relative to `plugin/`, the directory users inst
   drafts at most two lessons from the user's words, never tool output, and runs `propose.mjs`. A
   denial names its agent in the hook message. The hook message is one line (Claude Code prints it in the chat): the
   session and its friction, or the tool and lesson ids; the skills hold the steps.
-- `lib/paths.mjs`: `brainDir()` (`CLAUDE_BRAIN_DIR`), `projectsDir()` (`CLAUDE_CONFIG_DIR`),
+- `lib/paths.mjs`: `brainDir()` (`CLAUDE_BRAIN_DIR`), `configDir()` (`CLAUDE_CONFIG_DIR`), `projectsDir()`,
   `isMain()` (real paths, so a symlinked install runs its main).
 - `tests/capture.test.sh`: the hook end to end, then `node --test tests/*.test.mjs`. Node 22.13+
   is required; an older one fails the suite.

@@ -4,11 +4,10 @@
 // becomes ~/.claude/skills/brain-<name>/SKILL.md. A skill unused for 30 days is retired.
 // brain only ever writes, changes or removes `brain-` skills it made.
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 import { DAY, openDb, tx } from './db.mjs';
 import { recordChange } from './lessons.mjs';
-import { brainDir, isMain } from './paths.mjs';
+import { brainDir, configDir, isMain } from './paths.mjs';
 import { SCRIPT_RE, codeSpansOk } from './propose.mjs';
 import { projectNames, scrub } from './scrub.mjs';
 
@@ -20,8 +19,7 @@ const DESCRIPTION_MAX = 200;
 const BODY_MAX = 4000;
 
 export function skillsHome() {
-  const config = process.env.CLAUDE_CONFIG_DIR || path.join(os.homedir(), '.claude');
-  return path.join(config, 'skills');
+  return path.join(configDir(), 'skills');
 }
 
 // Live global lessons grouped by the tools their code spans name (`rg`, `pnpm`).
